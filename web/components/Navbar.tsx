@@ -3,18 +3,32 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Github } from "lucide-react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { GITHUB_URL } from "@/lib/site";
 
-const NAV_ITEMS = [
-  { label: "Overview", href: "#overview" },
-  { label: "Architecture", href: "#architecture" },
-  { label: "Status", href: "#status" },
+type NavItem = { label: string; href: string };
+
+const NAV_LANDING: readonly NavItem[] = [
+  { label: "Overview", href: "/#overview" },
+  { label: "Architecture", href: "/#architecture" },
+  { label: "Status", href: "/#status" },
+  { label: "Search", href: "/search" },
+  { label: "Documents", href: "/documents" },
+] as const;
+
+const NAV_APP: readonly NavItem[] = [
+  { label: "Home", href: "/" },
+  { label: "Search", href: "/search" },
+  { label: "Documents", href: "/documents" },
 ] as const;
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const pathname = usePathname() ?? "/";
+  const items = pathname === "/" ? NAV_LANDING : NAV_APP;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -23,6 +37,11 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Close mobile menu on route change.
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
   return (
     <motion.header
       initial={{ y: -28, opacity: 0 }}
@@ -30,36 +49,49 @@ export function Navbar() {
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         "fixed top-0 inset-x-0 z-50 transition-all duration-500",
-        scrolled ? "pt-3" : "pt-6",
+        scrolled || pathname !== "/" ? "pt-3" : "pt-6",
       )}
     >
       <nav
         className={cn(
-          "mx-auto flex items-center justify-between gap-4 transition-all duration-500",
-          "max-w-6xl px-4 sm:px-6",
-          scrolled
+          "mx-auto flex items-center justify-between gap-4 transition-all duration-500 max-w-6xl px-4 sm:px-6",
+          scrolled || pathname !== "/"
             ? "rounded-2xl glass-strong px-3 py-2.5 shadow-glow w-[calc(100%-1.5rem)] sm:w-[calc(100%-3rem)]"
             : "py-3",
         )}
       >
-        <a href="#" className="flex items-center gap-2 group">
+        <Link href="/" className="flex items-center gap-2 group">
           <Logo />
           <span className="text-sm font-semibold tracking-tight text-white">
             Velix
           </span>
-        </a>
+        </Link>
 
         <div className="hidden md:flex items-center gap-1">
-          {NAV_ITEMS.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="relative px-3 py-1.5 text-sm text-slate-300/90 hover:text-white transition-colors"
-            >
-              <span className="relative z-10">{item.label}</span>
-              <span className="absolute inset-x-3 bottom-0.5 h-px scale-x-0 bg-gradient-to-r from-transparent via-violet-400 to-transparent transition-transform duration-300 hover:scale-x-100" />
-            </a>
-          ))}
+          {items.map((item) => {
+            const isActive = isItemActive(pathname, item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "relative px-3 py-1.5 text-sm transition-colors",
+                  isActive
+                    ? "text-white"
+                    : "text-slate-300/90 hover:text-white",
+                )}
+              >
+                <span className="relative z-10">{item.label}</span>
+                {isActive ? (
+                  <motion.span
+                    layoutId="nav-underline"
+                    className="absolute inset-x-3 bottom-0.5 h-px bg-gradient-to-r from-transparent via-violet-400 to-transparent"
+                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                ) : null}
+              </Link>
+            );
+          })}
         </div>
 
         <div className="hidden md:flex items-center gap-2">
@@ -93,21 +125,24 @@ export function Navbar() {
             className="md:hidden mx-auto mt-2 max-w-6xl px-4 sm:px-6"
           >
             <div className="rounded-2xl glass-strong p-3">
-              {NAV_ITEMS.map((item) => (
-                <a
+              {items.map((item) => (
+                <Link
                   key={item.href}
                   href={item.href}
-                  onClick={() => setOpen(false)}
-                  className="block rounded-lg px-3 py-2 text-sm text-slate-200 hover:bg-white/5"
+                  className={cn(
+                    "block rounded-lg px-3 py-2 text-sm hover:bg-white/5",
+                    isItemActive(pathname, item.href)
+                      ? "text-white bg-white/5"
+                      : "text-slate-200",
+                  )}
                 >
                   {item.label}
-                </a>
+                </Link>
               ))}
               <a
                 href={GITHUB_URL}
                 target="_blank"
                 rel="noreferrer noopener"
-                onClick={() => setOpen(false)}
                 className="mt-1 flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-violet-500/90 to-cyan-500/90"
               >
                 <Github className="h-3.5 w-3.5" />
@@ -119,6 +154,12 @@ export function Navbar() {
       </AnimatePresence>
     </motion.header>
   );
+}
+
+function isItemActive(pathname: string, href: string): boolean {
+  if (href.startsWith("/#")) return false; // landing-page anchors don't get active styling
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(href + "/");
 }
 
 function Logo() {

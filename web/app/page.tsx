@@ -1,5 +1,3 @@
-import { AmbientBackground } from "@/components/AmbientBackground";
-import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
 import { Features } from "@/components/Features";
 import { Showcase } from "@/components/Showcase";
@@ -9,17 +7,13 @@ import { Footer } from "@/components/Footer";
 
 export default function Page() {
   return (
-    <>
-      <AmbientBackground />
-      <Navbar />
-      <main className="relative">
-        <Hero />
-        <Features />
-        <Showcase />
-        <Stats />
-        <CTA />
-        <Footer />
-      </main>
-    </>
+    <main className="relative">
+      <Hero />
+      <Features />
+      <Showcase />
+      <Stats />
+      <CTA />
+      <Footer />
+    </main>
   );
 }

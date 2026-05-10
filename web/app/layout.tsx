@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { AmbientBackground } from "@/components/AmbientBackground";
+import { Navbar } from "@/components/Navbar";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -30,6 +32,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-screen bg-ink-950 text-slate-200 antialiased selection:bg-violet-500/30">
+        <AmbientBackground />
+        <Navbar />
         {children}
       </body>
     </html>
