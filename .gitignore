@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+
+# PDFs (corpus is too big and regeneratable)
+*.pdf
+!tests/fixtures/*.pdf
+
+# Generated corpora and Qdrant indexes (build artifacts, not source)
+corpus_*/
+velix_index*/
+
+# Node / Next.js (web frontend)
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.netlify/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Claude Code local config (per-machine)
+.claude/
