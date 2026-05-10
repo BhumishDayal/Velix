@@ -3,5 +3,5 @@
  * GITHUB_URL points at a clearly-marked placeholder so links are obviously
  * not-yet-wired rather than pretending to work.
  */
-export const GITHUB_URL = "https://github.com/bhumishdayal/velix";
+export const GITHUB_URL = "https://github.com/bhumishdayal/Velix";
 export const AUTHOR_NAME = "Bhumish Dayal";

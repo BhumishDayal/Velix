@@ -311,5 +311,60 @@ def extract_fields(
         console.print(f"\n[dim]wrote extraction to[/] {output_json}")
 
 
+@app.command()
+def serve(
+    manifest: list[Path] = typer.Option(
+        ...,
+        "--manifest",
+        "-m",
+        help="Path to one or more corpus manifest CSVs (repeat the flag).",
+    ),
+    qdrant: str = typer.Option(
+        "memory",
+        "--qdrant",
+        help="Qdrant target: 'memory', a directory path, or http(s)://host URL.",
+    ),
+    cache_db: Path = typer.Option(
+        Path("velix_api_cache.sqlite"),
+        "--cache-db",
+        help="SQLite file for the extraction cache.",
+    ),
+    host: str = typer.Option("127.0.0.1", "--host"),
+    port: int = typer.Option(8000, "--port", min=1, max=65535),
+    use_mock: bool = typer.Option(
+        False,
+        "--mock",
+        help="Use MockEmbedder + MockExtractor (CPU). Required for laptop dev.",
+    ),
+    cors_origin: list[str] = typer.Option(
+        [],
+        "--cors-origin",
+        help="Allowed CORS origin (repeat the flag). Defaults to '*'.",
+    ),
+) -> None:
+    """Run the FastAPI service locally with uvicorn."""
+
+    import uvicorn
+
+    from velix.api.app import create_app
+    from velix.api.deps import AppConfig
+
+    config = AppConfig(
+        manifest_paths=list(manifest),
+        qdrant_target=qdrant,
+        cache_db_path=cache_db,
+        use_mock_embedder=use_mock,
+        use_mock_extractor=use_mock,
+        cors_origins=list(cors_origin) if cors_origin else None,
+    )
+    api = create_app(config)
+    console.print(
+        f"[bold]starting Velix API[/bold] on http://{host}:{port}  "
+        f"({'mock' if use_mock else 'real'} models, "
+        f"{len(manifest)} manifest{'s' if len(manifest) != 1 else ''})"
+    )
+    uvicorn.run(api, host=host, port=port, log_level="info")
+
+
 if __name__ == "__main__":
     app()
