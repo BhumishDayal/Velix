@@ -4,6 +4,7 @@ import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion
 import { Github, BookOpen } from "lucide-react";
 import { useRef } from "react";
 import { GITHUB_URL } from "@/lib/site";
+import { LiveStatus } from "./LiveStatus";
 
 export function Hero() {
   const ref = useRef<HTMLDivElement>(null);
@@ -33,17 +34,7 @@ export function Hero() {
         <div className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
           {/* Copy column */}
           <div className="lg:col-span-7">
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-              className="inline-flex items-center gap-2 rounded-full glass px-3 py-1 text-xs text-slate-300/90"
-            >
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inset-0 rounded-full bg-amber-300 opacity-70" />
-              </span>
-              <span>Open source · in active development</span>
-            </motion.div>
+            <LiveStatus />
 
             <motion.h1
               initial={{ opacity: 0, y: 24 }}
