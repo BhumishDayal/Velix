@@ -130,7 +130,7 @@ export function InDocSearch({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="mt-3 space-y-1 max-h-64 overflow-y-auto pr-1"
+            className="mt-3 space-y-2 max-h-[420px] overflow-y-auto pr-1"
           >
             {hits.map((hit, i) => {
               const displayPage = hit.page_number + 1; // 0-indexed → 1-indexed for UX
@@ -140,21 +140,36 @@ export function InDocSearch({
                   key={`${hit.page_number}-${i}`}
                   onClick={() => onJumpToPage(displayPage)}
                   className={cn(
-                    "group w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[12px] transition-all",
+                    "group w-full text-left rounded-lg px-3 py-2.5 transition-all",
                     isCurrent
-                      ? "bg-violet-500/15 text-violet-100 ring-1 ring-violet-400/30"
-                      : "text-slate-300 hover:bg-white/5 hover:text-white",
+                      ? "bg-violet-500/15 ring-1 ring-violet-400/30"
+                      : "hover:bg-white/5 ring-1 ring-transparent",
                   )}
                 >
-                  <span className="font-mono text-[11px] text-slate-400 group-hover:text-cyan-300 w-12 flex-shrink-0">
-                    p {displayPage}
-                  </span>
-                  <span className="flex-1 text-[11px] text-slate-400">
-                    {isCurrent ? "currently viewing" : "jump to page"}
-                  </span>
-                  <span className="font-mono text-[10px] text-slate-500 flex-shrink-0">
-                    {hit.score.toFixed(2)}
-                  </span>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="font-mono text-[11px] text-cyan-300">
+                        page {displayPage}
+                      </span>
+                      {isCurrent ? (
+                        <span className="text-[9px] uppercase tracking-[0.2em] text-violet-300">
+                          viewing
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="font-mono text-[10px] text-slate-500">
+                      {hit.score.toFixed(2)}
+                    </span>
+                  </div>
+                  {hit.snippet ? (
+                    <p className="text-[11px] leading-relaxed text-slate-300/90 line-clamp-3">
+                      <Highlighted text={hit.snippet} query={debounced} />
+                    </p>
+                  ) : (
+                    <p className="text-[10px] italic text-slate-500">
+                      No text preview (scanned page).
+                    </p>
+                  )}
                 </button>
               );
             })}
@@ -162,5 +177,34 @@ export function InDocSearch({
         ) : null}
       </AnimatePresence>
     </div>
+  );
+}
+
+/** Renders ``text`` with any words from ``query`` (length>2) wrapped in
+ *  ``<mark>``. Case-insensitive. Safe for arbitrary text — escapes regex
+ *  metacharacters in the query. */
+function Highlighted({ text, query }: { text: string; query: string }) {
+  if (!text || !query) return <>{text}</>;
+  const words = query.split(/\s+/).filter((w) => w.length > 2);
+  if (!words.length) return <>{text}</>;
+  const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const splitter = new RegExp(`(${escaped.join("|")})`, "gi");
+  const wordSet = new Set(words.map((w) => w.toLowerCase()));
+  const parts = text.split(splitter);
+  return (
+    <>
+      {parts.map((part, i) =>
+        wordSet.has(part.toLowerCase()) ? (
+          <mark
+            key={i}
+            className="rounded bg-violet-400/30 text-white px-0.5"
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
   );
 }

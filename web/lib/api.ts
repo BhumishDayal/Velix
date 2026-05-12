@@ -27,6 +27,7 @@ export interface SearchHit {
   page_number: number;
   file_path: string;
   title: string;
+  snippet?: string;
 }
 
 export interface SearchResponse {
