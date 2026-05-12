@@ -155,14 +155,25 @@ function PdfFrame({
   source: string;
   sourceId: string;
 }) {
-  const pdfUrl = api.documentPdfUrl(source, sourceId);
+  // #toolbar=1&navpanes=0 hints to browsers' built-in PDF viewers to render
+  // a clean reading view. Browsers that don't support these hints just ignore
+  // them. <object> is more reliable than <iframe> for cross-origin PDFs;
+  // <iframe> is the fallback for browsers that don't render <object> PDFs.
+  const pdfUrl = `${api.documentPdfUrl(source, sourceId)}#toolbar=1&navpanes=0`;
   return (
     <div className="rounded-2xl glass-strong ring-glow overflow-hidden h-[640px]">
-      <iframe
-        src={pdfUrl}
-        className="h-full w-full border-0 bg-white"
-        title="Document PDF"
-      />
+      <object
+        data={pdfUrl}
+        type="application/pdf"
+        className="h-full w-full bg-white"
+        aria-label="Document PDF"
+      >
+        <iframe
+          src={pdfUrl}
+          className="h-full w-full border-0 bg-white"
+          title="Document PDF"
+        />
+      </object>
     </div>
   );
 }
