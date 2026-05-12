@@ -33,6 +33,7 @@ export interface SearchResponse {
   query: string;
   limit: number;
   source_filter: string | null;
+  source_id_filter?: string | null;
   hits: SearchHit[];
 }
 
@@ -110,11 +111,17 @@ export const api = {
 
   search: (
     q: string,
-    opts: { limit?: number; source?: string; signal?: AbortSignal } = {},
+    opts: {
+      limit?: number;
+      source?: string;
+      sourceId?: string;
+      signal?: AbortSignal;
+    } = {},
   ) => {
     const params = new URLSearchParams({ q });
     if (opts.limit) params.set("limit", String(opts.limit));
     if (opts.source) params.set("source", opts.source);
+    if (opts.sourceId) params.set("source_id", opts.sourceId);
     return request<SearchResponse>(`/search?${params}`, { signal: opts.signal });
   },
 

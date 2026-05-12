@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { PdfViewer } from "@/components/PdfViewer";
+import { InDocSearch } from "@/components/InDocSearch";
 
 type Params = { source: string; id: string };
 
@@ -78,6 +79,8 @@ export default function DocumentDetailPage({
 }
 
 function DocumentDetail({ doc }: { doc: DocumentSummary }) {
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
   const sourceLabel =
     doc.source === "tx_glo"
       ? "Texas GLO"
@@ -135,15 +138,24 @@ function DocumentDetail({ doc }: { doc: DocumentSummary }) {
         </a>
       </div>
 
-      {/* Two columns: PDF preview + metadata panel */}
+      {/* Two columns: PDF preview + side panels */}
       <div className="mt-10 grid lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7">
           <PdfViewer
             url={api.documentPdfUrl(doc.source, doc.source_id)}
             initialPageCount={doc.page_count}
+            pageNumber={currentPage}
+            onPageChange={setCurrentPage}
           />
         </div>
         <div className="lg:col-span-5 space-y-5">
+          <InDocSearch
+            source={doc.source}
+            sourceId={doc.source_id}
+            pageCount={doc.page_count}
+            onJumpToPage={setCurrentPage}
+            currentPage={currentPage}
+          />
           <MetadataPanel doc={doc} />
           <ExtractionPanel doc={doc} />
         </div>

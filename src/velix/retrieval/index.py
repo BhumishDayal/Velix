@@ -142,22 +142,29 @@ class VelixIndex:
         *,
         limit: int = 10,
         source_filter: str | None = None,
+        source_id_filter: str | None = None,
     ) -> list[SearchHit]:
         if query_embedding.ndim != 2 or query_embedding.shape[1] != self.embedding_dim:
             raise ValueError(
                 f"expected (N, {self.embedding_dim}) query embedding, "
                 f"got shape {query_embedding.shape}"
             )
-        qdrant_filter = None
+        conditions: list[models.FieldCondition] = []
         if source_filter is not None:
-            qdrant_filter = models.Filter(
-                must=[
-                    models.FieldCondition(
-                        key="source",
-                        match=models.MatchValue(value=source_filter),
-                    )
-                ]
+            conditions.append(
+                models.FieldCondition(
+                    key="source",
+                    match=models.MatchValue(value=source_filter),
+                )
             )
+        if source_id_filter is not None:
+            conditions.append(
+                models.FieldCondition(
+                    key="source_id",
+                    match=models.MatchValue(value=source_id_filter),
+                )
+            )
+        qdrant_filter = models.Filter(must=conditions) if conditions else None
         response = self.client.query_points(
             collection_name=self.collection_name,
             query=query_embedding.tolist(),

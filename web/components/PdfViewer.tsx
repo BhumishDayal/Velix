@@ -17,15 +17,26 @@ const PDF_OPTIONS = {
 export function PdfViewer({
   url,
   initialPageCount,
+  pageNumber: controlledPage,
+  onPageChange,
 }: {
   url: string;
   initialPageCount?: number;
+  pageNumber?: number;
+  onPageChange?: (page: number) => void;
 }) {
   const [numPages, setNumPages] = useState<number>(initialPageCount ?? 0);
-  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [internalPage, setInternalPage] = useState<number>(1);
   const [error, setError] = useState<Error | null>(null);
   const [width, setWidth] = useState<number>(600);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Controlled vs uncontrolled. If parent passes pageNumber, use that.
+  const pageNumber = controlledPage ?? internalPage;
+  const setPageNumber = (next: number) => {
+    if (onPageChange) onPageChange(next);
+    if (controlledPage === undefined) setInternalPage(next);
+  };
 
   // Make the rendered page width responsive to the container.
   useEffect(() => {
@@ -38,11 +49,11 @@ export function PdfViewer({
     return () => ro.disconnect();
   }, []);
 
-  // Reset to page 1 if the document changes.
+  // Reset to page 1 if the document changes (uncontrolled mode only).
   useEffect(() => {
-    setPageNumber(1);
+    if (controlledPage === undefined) setInternalPage(1);
     setError(null);
-  }, [url]);
+  }, [url, controlledPage]);
 
   const canPrev = pageNumber > 1;
   const canNext = numPages > 0 && pageNumber < numPages;
@@ -52,7 +63,7 @@ export function PdfViewer({
       {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-white/5 bg-ink-900/40">
         <button
-          onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+          onClick={() => setPageNumber(Math.max(1, pageNumber - 1))}
           disabled={!canPrev}
           className={cn(
             "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors",
@@ -68,7 +79,7 @@ export function PdfViewer({
           {numPages > 0 ? `${pageNumber} / ${numPages}` : "—"}
         </span>
         <button
-          onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
+          onClick={() => setPageNumber(Math.min(numPages, pageNumber + 1))}
           disabled={!canNext}
           className={cn(
             "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors",
