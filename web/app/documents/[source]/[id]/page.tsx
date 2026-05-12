@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ExternalLink,
-  FileText,
   Loader2,
   AlertCircle,
 } from "lucide-react";
@@ -156,46 +155,14 @@ function PdfFrame({
   source: string;
   sourceId: string;
 }) {
-  const [pdfState, setPdfState] = useState<"loading" | "ok" | "missing">(
-    "loading",
-  );
   const pdfUrl = api.documentPdfUrl(source, sourceId);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(pdfUrl, { method: "HEAD", signal: controller.signal })
-      .then((res) => setPdfState(res.ok ? "ok" : "missing"))
-      .catch(() => setPdfState("missing"));
-    return () => controller.abort();
-  }, [pdfUrl]);
-
   return (
     <div className="rounded-2xl glass-strong ring-glow overflow-hidden h-[640px]">
-      {pdfState === "loading" ? (
-        <div className="h-full flex items-center justify-center text-sm text-slate-400">
-          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          Loading…
-        </div>
-      ) : pdfState === "ok" ? (
-        <iframe
-          src={pdfUrl}
-          className="h-full w-full border-0 bg-white"
-          title="Document PDF"
-        />
-      ) : (
-        <div className="h-full flex flex-col items-center justify-center text-center px-6">
-          <FileText className="h-10 w-10 text-slate-500" />
-          <p className="mt-4 text-sm text-slate-300">PDF not yet on Modal Volume</p>
-          <p className="mt-2 max-w-sm text-xs text-slate-500 leading-relaxed">
-            The corpus PDFs (~1.2 GB) are not uploaded in this build. Document
-            metadata loads fine, but the source PDF is unavailable. Upload via{" "}
-            <span className="font-mono text-slate-400">
-              modal volume put velix-data corpus_glo /corpus_glo
-            </span>
-            .
-          </p>
-        </div>
-      )}
+      <iframe
+        src={pdfUrl}
+        className="h-full w-full border-0 bg-white"
+        title="Document PDF"
+      />
     </div>
   );
 }

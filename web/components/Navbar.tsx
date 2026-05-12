@@ -13,7 +13,6 @@ type NavItem = { label: string; href: string };
 const NAV_LANDING: readonly NavItem[] = [
   { label: "Overview", href: "/#overview" },
   { label: "Architecture", href: "/#architecture" },
-  { label: "Status", href: "/#status" },
   { label: "Search", href: "/search" },
   { label: "Documents", href: "/documents" },
 ] as const;

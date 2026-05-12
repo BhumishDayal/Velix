@@ -1,7 +1,8 @@
 "use client";
 
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
-import { Github, BookOpen } from "lucide-react";
+import { ArrowRight, Github } from "lucide-react";
+import Link from "next/link";
 import { useRef } from "react";
 import { GITHUB_URL } from "@/lib/site";
 import { LiveStatus } from "./LiveStatus";
@@ -66,23 +67,23 @@ export function Hero() {
               transition={{ duration: 0.8, delay: 0.28 }}
               className="mt-9 flex flex-wrap items-center gap-3"
             >
-              <a
-                href={GITHUB_URL}
-                target="_blank"
-                rel="noreferrer noopener"
+              <Link
+                href="/search"
                 className="group relative inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium text-white shadow-glow"
               >
                 <span className="absolute inset-0 rounded-full bg-gradient-to-r from-violet-500 to-cyan-400" />
                 <span className="absolute inset-px rounded-full bg-gradient-to-r from-violet-500 to-cyan-400 opacity-90 transition group-hover:opacity-100" />
-                <Github className="relative h-4 w-4" />
-                <span className="relative">View on GitHub</span>
-              </a>
+                <span className="relative">Open the demo</span>
+                <ArrowRight className="relative h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
               <a
-                href="#architecture"
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noreferrer noopener"
                 className="group inline-flex items-center gap-2 rounded-full glass px-5 py-3 text-sm font-medium text-slate-200 hover:text-white hover-glow transition-all"
               >
-                <BookOpen className="h-3.5 w-3.5 text-cyan-300" />
-                Read the architecture
+                <Github className="h-3.5 w-3.5 text-cyan-300" />
+                View on GitHub
               </a>
             </motion.div>
           </div>

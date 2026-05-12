@@ -1,6 +1,8 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { SectionHeading } from "./Features";
 
 export function Showcase() {
@@ -21,16 +23,16 @@ export function Showcase() {
           {/* Right: copy */}
           <div className="lg:col-span-5 order-1 lg:order-2">
             <SectionHeading
-              eyebrow="Concept"
+              eyebrow="The Workspace"
               title="One screen for the page, the fields, and the checks."
-              subtitle="An illustration of where Velix is headed. The frontend is in development; what you see below is a sketch, not a screenshot."
+              subtitle="The PDF on the left, the typed extraction on the right, validators showing their work. Click into any indexed document and try it."
             />
 
             <ul className="mt-8 space-y-4">
               {[
-                "Page on the left, with bbox highlights for fields the model surfaced.",
-                "Pydantic-typed fields on the right, mirroring the document's schema.",
-                "Domain validators (PLSS, mineral fractions, party chains) shown pass or fail.",
+                "Source PDF rendered inline, scrollable, zoomable.",
+                "Pydantic-typed fields mirror the document's schema; what you see is what feeds the LLM.",
+                "Domain validators (PLSS, mineral fractions, party chains) show pass or fail per field.",
               ].map((line, i) => (
                 <motion.li
                   key={line}
@@ -45,6 +47,16 @@ export function Showcase() {
                 </motion.li>
               ))}
             </ul>
+
+            <div className="mt-8">
+              <Link
+                href="/documents/tx_glo/9113"
+                className="group inline-flex items-center gap-2 rounded-full glass px-4 py-2 text-sm font-medium text-slate-200 hover:text-white hover-glow transition-all"
+              >
+                Open this document
+                <ArrowUpRight className="h-3.5 w-3.5 text-cyan-300 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -77,7 +89,7 @@ function DashboardMock() {
             <span>/document/9113</span>
           </div>
           <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">
-            sketch
+            workspace
           </div>
         </div>
 

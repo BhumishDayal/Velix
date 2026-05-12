@@ -113,6 +113,17 @@ class ColQwen2Embedder(Embedder):
         dtype: str = "bfloat16",
     ) -> None:
         import torch  # local import: heavy
+
+        # Recent transformers calls peft._maybe_shard_state_dict_for_tp during
+        # adapter loading, but the function only lives in peft main and isn't
+        # in any released peft. We don't use tensor parallelism, so a no-op
+        # passthrough is safe and unblocks ColQwen2.from_pretrained.
+        import peft.utils.save_and_load as _ps
+        if not hasattr(_ps, "_maybe_shard_state_dict_for_tp"):
+            _ps._maybe_shard_state_dict_for_tp = (
+                lambda state_dict, *args, **kwargs: state_dict
+            )
+
         from colpali_engine.models import ColQwen2, ColQwen2Processor  # local import
 
         torch_dtype = getattr(torch, dtype)
@@ -122,7 +133,16 @@ class ColQwen2Embedder(Embedder):
             model_name, torch_dtype=torch_dtype, device_map=device
         ).eval()
         self.processor = ColQwen2Processor.from_pretrained(model_name)
-        self.embedding_dim = int(self.model.config.hidden_size)
+        # ColPali variants project to a fixed embedding dim (typically 128),
+        # not the base LLM's hidden_size. Try ``model.dim`` first (set by
+        # colpali-engine), fall back to introspecting the projection layer,
+        # finally to the published 128 default.
+        if hasattr(self.model, "dim"):
+            self.embedding_dim = int(self.model.dim)
+        elif hasattr(self.model, "custom_text_proj"):
+            self.embedding_dim = int(self.model.custom_text_proj.out_features)
+        else:
+            self.embedding_dim = 128
 
     def embed_pages(self, images: list[Image.Image]) -> list[np.ndarray]:
         torch = self._torch

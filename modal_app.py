@@ -1,82 +1,45 @@
 """Modal deployment for the Velix FastAPI service.
 
 Deploys the same FastAPI app from ``src/velix/api/`` as a serverless web
-endpoint on Modal. Scales to zero when idle (free), spins up on first
-request (~2-5s cold start).
-
-This first deployment uses the MockEmbedder + MockExtractor — no GPU. Search
-returns ranked results based on hashed embeddings (the plumbing works,
-ranking isn't semantic). To activate the real ColQwen2 + Qwen2.5-VL models
-later, see "GPU activation" at the bottom of this file.
+endpoint on Modal. Uses real ColQwen2 (visual retrieval) and Qwen2.5-VL-7B
+(structured extraction) models on an A10G GPU. Scales to zero when idle.
 
 ──────────────────────────────────────────────────────────────────────────────
-Deployment workflow (run these from the repo root, in any conda env)
+Deployment workflow
 ──────────────────────────────────────────────────────────────────────────────
 
-1. Install the Modal CLI:
-       pip install modal
+Prerequisites:
+    pip install modal
+    modal token new                                              # one-time
+    modal volume create velix-data
 
-2. Authenticate (opens a browser; one-time):
-       modal token new
+Build the index ON A GPU (Kaggle T4 free, or Modal/RunPod paid):
+    See the Kaggle notebook flow in the README.
+    Result: a velix_index/ folder you download as a tarball.
 
-3. Create the persistent volume that will hold the index + manifests:
-       modal volume create velix-data
+Upload the index + manifests + PDFs to the volume:
+    modal volume rm velix-data /velix_index --recursive  # if replacing an old one
+    modal volume put velix-data velix_index /velix_index
+    modal volume put velix-data corpus_glo_modal.csv /manifests/corpus_glo.csv --force
+    modal volume put velix-data corpus_sec_modal.csv /manifests/corpus_sec.csv --force
+    modal volume put velix-data corpus_glo /corpus_glo
+    modal volume put velix-data corpus_sec /corpus_sec
 
-4. Build the local Qdrant index if you haven't already:
-       conda activate velix
-       python -m velix.cli index --manifest corpus_glo/manifest.csv `
-           --manifest corpus_sec/manifest.csv --index velix_index --mock
-
-5. Upload the index and manifests to the volume:
-       modal volume put velix-data velix_index /velix_index
-       modal volume put velix-data corpus_glo/manifest.csv /manifests/corpus_glo.csv
-       modal volume put velix-data corpus_sec/manifest.csv /manifests/corpus_sec.csv
-
-6. Deploy the app:
-       modal deploy modal_app.py
-
-   Modal prints a public URL on success — looks like
-   https://bhumishdayal--velix-velix-api.modal.run
-
-7. Verify:
-       curl https://bhumishdayal--velix-velix-api.modal.run/health
+Deploy:
+    modal deploy modal_app.py
 
 ──────────────────────────────────────────────────────────────────────────────
-Caveats for this first deployment
+Cold-start behavior
 ──────────────────────────────────────────────────────────────────────────────
 
-- The corpus PDFs are NOT uploaded (1.2 GB; would take 10-20 minutes).
-- Endpoints that need PDFs (``/documents/{src}/{id}/pdf`` and ``/extract``)
-  will return 404. ``/search`` and ``/documents`` work fine.
-- To enable the PDF endpoints, also run:
-       modal volume put velix-data corpus_glo /corpus_glo
-       modal volume put velix-data corpus_sec /corpus_sec
-  ...and update the manifest file_path values to point at the Linux paths
-  (``/data/corpus_glo/...``).
+Loading ColQwen2 + Qwen2.5-VL-7B from disk takes ~30-60s on first request
+after idle. The ``scaledown_window`` setting keeps the container warm for
+10 minutes after the last request, so realistic demo usage hits the cold
+start at most once per visit.
 
-──────────────────────────────────────────────────────────────────────────────
-GPU activation (later)
-──────────────────────────────────────────────────────────────────────────────
-
-To swap the mocks for real models, change ``use_mock_*`` to False in the
-``AppConfig`` below, add the GPU-side packages to the image, and request
-GPU on the function::
-
-    image = (
-        modal.Image.debian_slim(python_version="3.12")
-        .pip_install(..., "torch>=2.2.0", "transformers>=4.45.0",
-                     "colpali-engine>=0.3.0", "accelerate>=0.30.0")
-        .add_local_python_source("velix")
-    )
-
-    @app.function(image=image, gpu="A10G", volumes={"/data": data_volume}, ...)
-
-Cold-start hint: pre-load the models into a snapshot::
-
-    image = image.run_function(preload_models)
-
-…where ``preload_models`` triggers ``ColQwen2Embedder()`` and
-``Qwen2VLExtractor()`` instantiation so weights are baked into the snapshot.
+For sub-5-second cold starts, swap the image to use ``image.run_function(
+preload_models)`` so model weights are baked into a snapshot. Adds image
+build time but eliminates the load delay. Skipped here to keep deploy fast.
 """
 
 from pathlib import Path
@@ -101,8 +64,12 @@ image = (
         "typer>=0.12.0",
         "python-dotenv>=1.0.0",
         "rapidfuzz>=3.9.0",
-        # Retrieval (CPU-side; GPU-side adds torch + colpali-engine later)
+        # Retrieval (CPU and GPU sides)
         "qdrant-client>=1.10.0",
+        "torch>=2.2.0",
+        "transformers>=4.45.0",
+        "colpali-engine>=0.3.0",
+        "accelerate>=0.30.0",
         # API
         "fastapi>=0.115.0",
         "uvicorn[standard]>=0.32.0",
@@ -112,8 +79,7 @@ image = (
     .add_local_python_source("velix")
 )
 
-# Persistent volume for the Qdrant index and manifests. Survives across
-# deploys; updates via `modal volume put`.
+# Persistent volume for the Qdrant index, manifests, and corpus PDFs.
 data_volume = modal.Volume.from_name("velix-data", create_if_missing=True)
 
 
@@ -125,9 +91,11 @@ data_volume = modal.Volume.from_name("velix-data", create_if_missing=True)
 @app.function(
     image=image,
     volumes={"/data": data_volume},
-    timeout=300,
-    min_containers=0,    # scales to zero when idle
-    max_containers=10,
+    gpu="A10G",                # 24 GB VRAM: ColQwen2 (~5 GB) + Qwen2.5-VL-7B (~14 GB) fit
+    timeout=600,
+    min_containers=0,           # scales to zero when idle
+    max_containers=4,
+    scaledown_window=600,       # keep container warm for 10 min after last request
 )
 @modal.asgi_app(label="velix-api")
 def fastapi_app():
@@ -141,10 +109,11 @@ def fastapi_app():
         ],
         qdrant_target="/data/velix_index",
         cache_db_path=Path("/data/velix_api_cache.sqlite"),
-        use_mock_embedder=True,
-        use_mock_extractor=True,
+        # Real models — GPU activated.
+        use_mock_embedder=False,
+        use_mock_extractor=False,
         # Locked open during the demo. Lock down to your Netlify origin
-        # post-launch by passing e.g. ["https://velix.netlify.app"].
+        # post-launch by passing e.g. ["https://velix01.netlify.app"].
         cors_origins=["*"],
         require_pdf=False,
     )
