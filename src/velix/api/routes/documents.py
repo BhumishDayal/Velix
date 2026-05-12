@@ -90,8 +90,13 @@ def get_document_pdf(
             status_code=404,
             detail=f"PDF not available on disk: {record.file_path}",
         )
+    # Pass an explicit `inline` Content-Disposition so the browser renders
+    # the PDF in the page (or iframe) instead of forcing a download.
+    suggested_name = f"{record.source}-{record.source_id}.pdf"
     return FileResponse(
         path=record.file_path,
         media_type="application/pdf",
-        filename=f"{record.source}-{record.source_id}.pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{suggested_name}"',
+        },
     )
