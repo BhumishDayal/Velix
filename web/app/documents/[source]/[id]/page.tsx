@@ -16,8 +16,22 @@ import {
   ApiError,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { PdfViewer } from "@/components/PdfViewer";
+import dynamic from "next/dynamic";
 import { InDocSearch } from "@/components/InDocSearch";
+
+// react-pdf initializes pdfjs worker at module load, which trips Next.js SSR.
+// Dynamically loading with ssr:false keeps it strictly client-side.
+const PdfViewer = dynamic(
+  () => import("@/components/PdfViewer").then((m) => m.PdfViewer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-2xl glass-strong ring-glow h-[640px] flex items-center justify-center text-sm text-slate-400">
+        Loading viewer…
+      </div>
+    ),
+  },
+);
 
 type Params = { source: string; id: string };
 
