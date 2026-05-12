@@ -50,20 +50,32 @@ export function Navbar() {
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         "fixed top-0 inset-x-0 z-50 transition-all duration-500",
-        lifted ? "pt-3" : "pt-6",
+        lifted ? "pt-4" : "pt-6",
       )}
     >
-      <nav className="relative mx-auto max-w-6xl px-4 sm:px-6 py-3">
-        {/* Glass card — always rendered, opacity fades to avoid border snap */}
-        <div
-          aria-hidden
-          className={cn(
-            "absolute inset-x-4 sm:inset-x-6 inset-y-0 rounded-2xl glass-strong shadow-glow",
-            "transition-opacity duration-500 will-change-[opacity]",
-            lifted ? "opacity-100" : "opacity-0",
-          )}
-        />
-        <div className="relative flex items-center justify-between gap-4">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <nav className="relative px-4 py-2.5">
+          {/* Glass background — always rendered, opacity fades smoothly */}
+          <div
+            aria-hidden
+            className={cn(
+              "absolute inset-0 rounded-2xl",
+              "bg-ink-900/60 backdrop-blur-xl backdrop-saturate-150",
+              "ring-1 ring-white/10",
+              "transition-opacity duration-500 will-change-[opacity]",
+              lifted ? "opacity-100" : "opacity-0",
+            )}
+          />
+          {/* Subtle top-edge highlight when lifted */}
+          <div
+            aria-hidden
+            className={cn(
+              "absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent",
+              "transition-opacity duration-500",
+              lifted ? "opacity-100" : "opacity-0",
+            )}
+          />
+          <div className="relative flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2 group">
           <Logo />
           <span className="text-sm font-semibold tracking-tight text-white">
@@ -117,8 +129,9 @@ export function Navbar() {
         >
           {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </button>
-        </div>
-      </nav>
+          </div>
+        </nav>
+      </div>
 
       <AnimatePresence>
         {open && (
