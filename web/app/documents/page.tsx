@@ -18,10 +18,11 @@ const PAGE_SIZE = 24;
 
 // A small handpicked set that lands at the top of the corpus listing.
 // Mix of clean modern SEC oil & gas exhibits and historical TX-GLO grants.
-// Order matters — first card gets the most attention.
+// Order matters — first card gets the most attention. SEC source_ids use
+// '--' instead of '/' (the backend normalizes both at load time).
 const PINNED: ReadonlyArray<{ source: string; source_id: string }> = [
-  { source: "sec_edgar", source_id: "0001211524-10-000052/adobe8kprovidence.pdf" },
-  { source: "sec_edgar", source_id: "0001165527-14-000468/ex10-75.pdf" },
+  { source: "sec_edgar", source_id: "0001211524-10-000052--adobe8kprovidence.pdf" },
+  { source: "sec_edgar", source_id: "0001165527-14-000468--ex10-75.pdf" },
   { source: "tx_glo", source_id: "9113" },
   { source: "tx_glo", source_id: "9225" },
   { source: "tx_glo", source_id: "9117" },

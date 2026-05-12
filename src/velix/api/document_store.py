@@ -3,6 +3,12 @@
 Demo corpus is small (~200 docs); fits trivially in memory. Per row we keep
 the metadata the search/extract endpoints need, plus the resolved absolute
 PDF path so route handlers don't need to deal with manifest-relative paths.
+
+Source IDs that contain ``/`` (e.g. SEC EDGAR's ``<accession>/<filename>``)
+are normalized to use ``--`` instead, since FastAPI/uvicorn decodes ``%2F``
+back to ``/`` before route matching, which would split the segment and
+break the ``/documents/{source}/{source_id}`` route. The original value
+stays accessible via ``DocumentRecord.source_id_raw``.
 """
 
 from __future__ import annotations
@@ -14,10 +20,24 @@ from pathlib import Path
 from typing import Any
 
 
+SOURCE_ID_SLASH_REPLACEMENT = "--"
+
+
+def _url_safe_source_id(raw: str) -> str:
+    """Make a source_id usable as a single URL path segment.
+
+    SEC EDGAR ids contain ``/`` (``<accession>/<filename>``) which collides
+    with FastAPI route matching after uvicorn URL-decodes ``%2F``. Swap to
+    a non-conflicting separator. Idempotent; safe to call repeatedly.
+    """
+    return raw.replace("/", SOURCE_ID_SLASH_REPLACEMENT)
+
+
 @dataclass(frozen=True)
 class DocumentRecord:
     source: str
-    source_id: str
+    source_id: str  # URL-safe form (no '/')
+    source_id_raw: str  # original value from the manifest
     file_path: Path
     page_count: int
     sha256: str
@@ -72,9 +92,11 @@ class DocumentStore:
                         metadata = json.loads(row.get("metadata_json", "{}") or "{}")
                     except json.JSONDecodeError:
                         metadata = {}
+                    raw_source_id = row["source_id"]
                     record = DocumentRecord(
                         source=row["source"],
-                        source_id=row["source_id"],
+                        source_id=_url_safe_source_id(raw_source_id),
+                        source_id_raw=raw_source_id,
                         file_path=pdf_path,
                         page_count=int(row.get("page_count") or 0),
                         sha256=row.get("sha256", ""),
@@ -88,7 +110,8 @@ class DocumentStore:
         self._by_key[record.key] = record
 
     def get(self, source: str, source_id: str) -> DocumentRecord | None:
-        return self._by_key.get((source, source_id))
+        # Accept either URL-safe (--) or raw (/) form so legacy links work.
+        return self._by_key.get((source, _url_safe_source_id(source_id)))
 
     def all(
         self,
