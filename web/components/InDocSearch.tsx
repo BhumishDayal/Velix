@@ -155,12 +155,12 @@ export function InDocSearch({
                     </span>
                   </div>
                   {hit.snippet ? (
-                    <p className="text-[11px] leading-relaxed text-slate-300/90 line-clamp-3">
+                    <p className="text-[12px] leading-relaxed text-slate-200/90 whitespace-pre-wrap break-words">
                       <Highlighted text={hit.snippet} query={debounced} />
                     </p>
                   ) : (
                     <p className="text-[10px] italic text-slate-500">
-                      No text preview (scanned page).
+                      No text preview (scanned page) — click to view.
                     </p>
                   )}
                 </button>

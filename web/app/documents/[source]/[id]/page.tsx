@@ -214,6 +214,7 @@ function MetadataPanel({ doc }: { doc: DocumentSummary }) {
 }
 
 const SCHEMAS = [
+  { value: "auto", label: "Auto-detect" },
   { value: "mineral_deed", label: "Mineral Deed" },
   { value: "oil_gas_lease", label: "Oil & Gas Lease" },
   { value: "division_order", label: "Division Order" },
@@ -222,28 +223,83 @@ const SCHEMAS = [
   { value: "joa_snippet", label: "JOA Snippet" },
 ] as const;
 
+function inferSchema(doc: DocumentSummary): string {
+  const haystack = [
+    doc.title || "",
+    String(doc.metadata?.title ?? ""),
+    String(doc.metadata?.form ?? ""),
+    String(doc.metadata?.document_type ?? ""),
+  ]
+    .join(" ")
+    .toLowerCase();
+  if (/\bjoa\b|joint operating|operating agreement/.test(haystack))
+    return "joa_snippet";
+  if (/division order/.test(haystack)) return "division_order";
+  if (/ratification/.test(haystack)) return "ratification";
+  if (/assignment/.test(haystack)) return "assignment";
+  if (/lease/.test(haystack)) return "oil_gas_lease";
+  if (/deed|grant/.test(haystack)) return "mineral_deed";
+  return "oil_gas_lease";
+}
+
+function describeApiError(err: ApiError): string {
+  const detail = err.detail as unknown;
+  if (typeof detail === "string") return `${err.status}: ${detail}`;
+  if (detail && typeof detail === "object") {
+    const d = detail as Record<string, unknown>;
+    const inner = d.detail ?? d;
+    if (typeof inner === "string") return `${err.status}: ${inner}`;
+    if (inner && typeof inner === "object") {
+      const obj = inner as Record<string, unknown>;
+      const msg = typeof obj.message === "string" ? obj.message : null;
+      const errs = Array.isArray(obj.errors) ? (obj.errors as unknown[]) : null;
+      if (msg && errs && errs.length) {
+        const fields = errs
+          .map((e) => {
+            const eo = e as Record<string, unknown>;
+            const loc = Array.isArray(eo.loc) ? eo.loc.join(".") : "";
+            return loc || (typeof eo.msg === "string" ? eo.msg : "");
+          })
+          .filter(Boolean)
+          .slice(0, 4)
+          .join(", ");
+        return `${err.status}: ${msg}${fields ? ` — missing/invalid: ${fields}` : ""}`;
+      }
+      if (msg) return `${err.status}: ${msg}`;
+    }
+  }
+  return `${err.status}: ${err.message || "request failed"}`;
+}
+
 function ExtractionPanel({ doc }: { doc: DocumentSummary }) {
-  const [schema, setSchema] = useState<string>(SCHEMAS[0].value);
+  const inferred = inferSchema(doc);
+  const [schema, setSchema] = useState<string>("auto");
   const [page, setPage] = useState<number>(0);
   const [result, setResult] = useState<ExtractResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resultFilter, setResultFilter] = useState<string>("");
+
+  const effectiveSchema = schema === "auto" ? inferred : schema;
+  const inferredLabel =
+    SCHEMAS.find((s) => s.value === inferred)?.label ?? inferred;
 
   async function run() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setResultFilter("");
     try {
       const res = await api.extract({
         source: doc.source,
         source_id: doc.source_id,
         page_number: page,
-        schema_name: schema,
+        schema_name: effectiveSchema,
       });
       setResult(res);
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(`${err.status}: ${err.message}`);
+        setError(describeApiError(err));
       } else {
         setError("request failed");
       }
@@ -286,6 +342,13 @@ function ExtractionPanel({ doc }: { doc: DocumentSummary }) {
         </label>
       </div>
 
+      {schema === "auto" ? (
+        <div className="mt-2 text-[10px] text-slate-500">
+          Inferred from title:{" "}
+          <span className="text-cyan-300/90 font-mono">{inferredLabel}</span>
+        </div>
+      ) : null}
+
       <button
         onClick={run}
         disabled={loading}
@@ -325,12 +388,115 @@ function ExtractionPanel({ doc }: { doc: DocumentSummary }) {
               {result.cached ? "cached" : "fresh"}
             </span>
           </div>
-          <pre className="text-[10px] font-mono text-slate-300 overflow-x-auto whitespace-pre-wrap break-words leading-relaxed max-h-72 overflow-y-auto">
-            {JSON.stringify(result.extraction, null, 2)}
-          </pre>
+          <input
+            value={resultFilter}
+            onChange={(e) => setResultFilter(e.target.value)}
+            placeholder="Filter fields (e.g. lessor, royalty, county)…"
+            className="mb-2 w-full rounded-md bg-white/5 px-2.5 py-1.5 text-[11px] text-white placeholder:text-slate-500 outline-none ring-1 ring-white/10 focus:ring-violet-400/40 font-mono"
+          />
+          <ExtractionResultView
+            extraction={result.extraction}
+            filter={resultFilter}
+          />
         </div>
       ) : null}
     </div>
+  );
+}
+
+type FlatRow = { path: string; value: string };
+
+function flattenExtraction(value: unknown, prefix = ""): FlatRow[] {
+  const rows: FlatRow[] = [];
+  if (value === null || value === undefined) {
+    rows.push({ path: prefix || "(root)", value: String(value) });
+    return rows;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      rows.push({ path: prefix, value: "[]" });
+    } else {
+      value.forEach((v, i) => {
+        rows.push(...flattenExtraction(v, `${prefix}[${i}]`));
+      });
+    }
+    return rows;
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) {
+      rows.push({ path: prefix, value: "{}" });
+    } else {
+      for (const [k, v] of entries) {
+        rows.push(...flattenExtraction(v, prefix ? `${prefix}.${k}` : k));
+      }
+    }
+    return rows;
+  }
+  rows.push({ path: prefix, value: String(value) });
+  return rows;
+}
+
+function ExtractionResultView({
+  extraction,
+  filter,
+}: {
+  extraction: Record<string, unknown>;
+  filter: string;
+}) {
+  const rows = flattenExtraction(extraction);
+  const q = filter.trim().toLowerCase();
+  const filtered = q
+    ? rows.filter(
+        (r) =>
+          r.path.toLowerCase().includes(q) ||
+          r.value.toLowerCase().includes(q),
+      )
+    : rows;
+
+  if (filtered.length === 0) {
+    return (
+      <div className="text-[11px] text-slate-500 italic">
+        No fields match &ldquo;{filter}&rdquo;.
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-h-80 overflow-y-auto pr-1 space-y-1">
+      {filtered.map((r, i) => (
+        <div
+          key={`${r.path}-${i}`}
+          className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-3 text-[11px] py-1 border-b border-white/5 last:border-b-0"
+        >
+          <div className="font-mono text-slate-400 truncate" title={r.path}>
+            <FilterHighlight text={r.path} query={q} />
+          </div>
+          <div className="font-mono text-slate-100 break-words">
+            <FilterHighlight text={r.value} query={q} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FilterHighlight({ text, query }: { text: string; query: string }) {
+  if (!query) return <>{text}</>;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query ? (
+          <mark key={i} className="rounded bg-violet-400/30 text-white px-0.5">
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
   );
 }
 

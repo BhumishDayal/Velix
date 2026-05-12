@@ -23,7 +23,7 @@ def _extract_page_text(pdf_path: Path, page_number: int) -> str:
         return ""
 
 
-def _make_snippet(text: str, query: str, max_len: int = 260) -> str:
+def _make_snippet(text: str, query: str, max_len: int = 700) -> str:
     if not text or not text.strip():
         return ""
     lower = text.lower()
@@ -38,8 +38,8 @@ def _make_snippet(text: str, query: str, max_len: int = 260) -> str:
         if len(text) > max_len:
             snippet += "…"
     else:
-        start = max(0, earliest - 60)
-        end = min(len(text), earliest + max_len - 60)
+        start = max(0, earliest - 140)
+        end = min(len(text), earliest + max_len - 140)
         snippet = text[start:end].strip()
         if start > 0:
             snippet = "…" + snippet
