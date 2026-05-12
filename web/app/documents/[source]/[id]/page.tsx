@@ -16,6 +16,7 @@ import {
   ApiError,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { PdfViewer } from "@/components/PdfViewer";
 
 type Params = { source: string; id: string };
 
@@ -137,7 +138,10 @@ function DocumentDetail({ doc }: { doc: DocumentSummary }) {
       {/* Two columns: PDF preview + metadata panel */}
       <div className="mt-10 grid lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7">
-          <PdfFrame source={doc.source} sourceId={doc.source_id} />
+          <PdfViewer
+            url={api.documentPdfUrl(doc.source, doc.source_id)}
+            initialPageCount={doc.page_count}
+          />
         </div>
         <div className="lg:col-span-5 space-y-5">
           <MetadataPanel doc={doc} />
@@ -145,36 +149,6 @@ function DocumentDetail({ doc }: { doc: DocumentSummary }) {
         </div>
       </div>
     </motion.div>
-  );
-}
-
-function PdfFrame({
-  source,
-  sourceId,
-}: {
-  source: string;
-  sourceId: string;
-}) {
-  // #toolbar=1&navpanes=0 hints to browsers' built-in PDF viewers to render
-  // a clean reading view. Browsers that don't support these hints just ignore
-  // them. <object> is more reliable than <iframe> for cross-origin PDFs;
-  // <iframe> is the fallback for browsers that don't render <object> PDFs.
-  const pdfUrl = `${api.documentPdfUrl(source, sourceId)}#toolbar=1&navpanes=0`;
-  return (
-    <div className="rounded-2xl glass-strong ring-glow overflow-hidden h-[640px]">
-      <object
-        data={pdfUrl}
-        type="application/pdf"
-        className="h-full w-full bg-white"
-        aria-label="Document PDF"
-      >
-        <iframe
-          src={pdfUrl}
-          className="h-full w-full border-0 bg-white"
-          title="Document PDF"
-        />
-      </object>
-    </div>
   );
 }
 
