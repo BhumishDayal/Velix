@@ -1,10 +1,3 @@
-"""PDF → page-image rendering for visual indexing.
-
-We render at a moderate DPI (default 144) so embedders that crop / resize
-to ~1024px get a clean page. Higher DPI buys nothing for visual retrieval
-since ColQwen2's input resolution is bounded by the vision encoder.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -21,12 +14,6 @@ def render_pdf_pages(
     *,
     dpi: int = DEFAULT_DPI,
 ) -> Iterator[tuple[int, Image.Image]]:
-    """Yield (page_number, PIL.Image) for each page in the PDF.
-
-    page_number is 0-indexed. Caller is responsible for closing/dropping
-    images once consumed (PIL Images are normal Python objects and free
-    on garbage collection).
-    """
     with pymupdf.open(pdf_path) as doc:
         zoom = dpi / 72.0
         matrix = pymupdf.Matrix(zoom, zoom)

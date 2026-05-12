@@ -1,20 +1,3 @@
-"""Embedder interface and implementations.
-
-Two implementations:
-
-- MockEmbedder: deterministic, hash-based, CPU-only. Lets the rest of the
-  retrieval stack be tested without GPUs or model downloads.
-- ColQwen2Embedder: the real ColPali-engine ColQwen2 embedder. Requires a
-  GPU and the [retrieval] extras (colpali-engine, torch, transformers).
-  Imported lazily so this module loads on CPU-only environments.
-
-Both produce **multi-vector embeddings**: a 2-D array of shape
-(num_tokens_or_patches, embedding_dim). Pages have many patches; queries
-have many text tokens. Late interaction (MaxSim) at search time scores the
-match between every query token and the most similar page patch, then
-sums the per-token maxima. Qdrant 1.10+ executes this natively.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -25,31 +8,19 @@ from PIL import Image
 
 
 class Embedder(ABC):
-    """Common interface for any visual late-interaction embedder."""
-
     embedding_dim: int
 
     @abstractmethod
-    def embed_pages(self, images: list[Image.Image]) -> list[np.ndarray]:
-        """Embed a batch of page images.
-
-        Returns one (num_patches, embedding_dim) float32 array per image.
-        """
+    def embed_pages(self, images: list[Image.Image]) -> list[np.ndarray]: ...
 
     @abstractmethod
-    def embed_query(self, text: str) -> np.ndarray:
-        """Embed a single query string.
-
-        Returns a (num_query_tokens, embedding_dim) float32 array.
-        """
+    def embed_query(self, text: str) -> np.ndarray: ...
 
 
 def _seed_to_unit_vector(seed_bytes: bytes, dim: int) -> np.ndarray:
-    """Map an arbitrary byte string to a deterministic unit vector."""
     out = np.zeros(dim, dtype=np.float32)
     digest = hashlib.sha256(seed_bytes).digest()
-    # Repeat-extend the digest into `dim` floats deterministically.
-    needed = dim * 4  # float32 = 4 bytes
+    needed = dim * 4
     extended = (digest * ((needed // len(digest)) + 1))[:needed]
     out[:] = np.frombuffer(extended, dtype=np.uint32).astype(np.float32)
     out -= out.mean()
@@ -60,9 +31,8 @@ def _seed_to_unit_vector(seed_bytes: bytes, dim: int) -> np.ndarray:
 
 
 class MockEmbedder(Embedder):
-    """Hashes inputs to deterministic unit vectors of the same shape ColQwen2
-    would produce. Identical inputs always produce identical embeddings, so
-    tests can assert exact ranking behaviour."""
+    """Deterministic hash-based embedder for CPU tests. Same shape as
+    ColQwen2 but the rankings aren't semantic."""
 
     def __init__(
         self,
@@ -102,8 +72,7 @@ class MockEmbedder(Embedder):
 
 
 class ColQwen2Embedder(Embedder):
-    """Real ColQwen2 embedder. GPU required. Heavy imports are deferred so
-    importing the retrieval package is cheap on CPU-only machines."""
+    """ColQwen2-v1.0 visual embedder. Requires GPU + the [retrieval] extras."""
 
     def __init__(
         self,
@@ -112,19 +81,18 @@ class ColQwen2Embedder(Embedder):
         device: str = "cuda",
         dtype: str = "bfloat16",
     ) -> None:
-        import torch  # local import: heavy
+        import torch
 
-        # Recent transformers calls peft._maybe_shard_state_dict_for_tp during
-        # adapter loading, but the function only lives in peft main and isn't
-        # in any released peft. We don't use tensor parallelism, so a no-op
-        # passthrough is safe and unblocks ColQwen2.from_pretrained.
+        # Latest transformers calls peft._maybe_shard_state_dict_for_tp during
+        # adapter loading; the function only exists in peft main. No-op shim
+        # since we don't use tensor parallelism.
         import peft.utils.save_and_load as _ps
         if not hasattr(_ps, "_maybe_shard_state_dict_for_tp"):
             _ps._maybe_shard_state_dict_for_tp = (
                 lambda state_dict, *args, **kwargs: state_dict
             )
 
-        from colpali_engine.models import ColQwen2, ColQwen2Processor  # local import
+        from colpali_engine.models import ColQwen2, ColQwen2Processor
 
         torch_dtype = getattr(torch, dtype)
         self._torch = torch
@@ -133,10 +101,8 @@ class ColQwen2Embedder(Embedder):
             model_name, torch_dtype=torch_dtype, device_map=device
         ).eval()
         self.processor = ColQwen2Processor.from_pretrained(model_name)
-        # ColPali variants project to a fixed embedding dim (typically 128),
-        # not the base LLM's hidden_size. Try ``model.dim`` first (set by
-        # colpali-engine), fall back to introspecting the projection layer,
-        # finally to the published 128 default.
+
+        # ColPali variants project to a fixed dim regardless of base LLM.
         if hasattr(self.model, "dim"):
             self.embedding_dim = int(self.model.dim)
         elif hasattr(self.model, "custom_text_proj"):

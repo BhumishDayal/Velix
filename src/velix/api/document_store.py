@@ -1,16 +1,3 @@
-"""In-memory document index loaded from corpus manifest CSVs at startup.
-
-Demo corpus is small (~200 docs); fits trivially in memory. Per row we keep
-the metadata the search/extract endpoints need, plus the resolved absolute
-PDF path so route handlers don't need to deal with manifest-relative paths.
-
-Source IDs that contain ``/`` (e.g. SEC EDGAR's ``<accession>/<filename>``)
-are normalized to use ``--`` instead, since FastAPI/uvicorn decodes ``%2F``
-back to ``/`` before route matching, which would split the segment and
-break the ``/documents/{source}/{source_id}`` route. The original value
-stays accessible via ``DocumentRecord.source_id_raw``.
-"""
-
 from __future__ import annotations
 
 import csv
@@ -24,20 +11,16 @@ SOURCE_ID_SLASH_REPLACEMENT = "--"
 
 
 def _url_safe_source_id(raw: str) -> str:
-    """Make a source_id usable as a single URL path segment.
-
-    SEC EDGAR ids contain ``/`` (``<accession>/<filename>``) which collides
-    with FastAPI route matching after uvicorn URL-decodes ``%2F``. Swap to
-    a non-conflicting separator. Idempotent; safe to call repeatedly.
-    """
+    """``/`` in source_ids breaks single-segment route matching after URL
+    decoding. Swap to a non-conflicting separator. Idempotent."""
     return raw.replace("/", SOURCE_ID_SLASH_REPLACEMENT)
 
 
 @dataclass(frozen=True)
 class DocumentRecord:
     source: str
-    source_id: str  # URL-safe form (no '/')
-    source_id_raw: str  # original value from the manifest
+    source_id: str
+    source_id_raw: str
     file_path: Path
     page_count: int
     sha256: str
@@ -51,7 +34,6 @@ class DocumentRecord:
 
 def _resolve_pdf_path(raw: str, manifest_path: Path) -> Path | None:
     raw_path = Path(raw)
-    candidates: list[Path]
     if raw_path.is_absolute():
         candidates = [raw_path]
     else:
@@ -84,9 +66,6 @@ class DocumentStore:
                     if pdf_path is None:
                         if require_pdf:
                             continue
-                        # Keep the metadata even if the PDF is missing (e.g.,
-                        # in CI where corpus PDFs aren't bundled). file_path
-                        # falls back to the unresolved manifest value.
                         pdf_path = Path(row["file_path"])
                     try:
                         metadata = json.loads(row.get("metadata_json", "{}") or "{}")
@@ -110,7 +89,6 @@ class DocumentStore:
         self._by_key[record.key] = record
 
     def get(self, source: str, source_id: str) -> DocumentRecord | None:
-        # Accept either URL-safe (--) or raw (/) form so legacy links work.
         return self._by_key.get((source, _url_safe_source_id(source_id)))
 
     def all(

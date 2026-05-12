@@ -1,13 +1,3 @@
-"""Extraction cache backed by SQLite via aiosqlite.
-
-One row per (source, source_id, page_number, schema_name). Stored payload is
-the JSON-serialized Pydantic model dump. Re-extracting the same page with
-the same schema returns the cached row instead of hitting the model.
-
-The cache is opt-in: handlers check ``get`` first and ``set`` after a
-successful extraction. Misses fall through to the extractor.
-"""
-
 from __future__ import annotations
 
 import json
@@ -55,9 +45,7 @@ class ExtractionCache:
                 (source, source_id, page_number, schema_name),
             ) as cur:
                 row = await cur.fetchone()
-        if row is None:
-            return None
-        return json.loads(row[0])
+        return json.loads(row[0]) if row else None
 
     async def set(
         self,

@@ -31,13 +31,11 @@ export default function SearchPage() {
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Debounce the query so we're not firing /search on every keystroke.
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query.trim()), 250);
     return () => clearTimeout(t);
   }, [query]);
 
-  // Run the search whenever the debounced query or filter changes.
   useEffect(() => {
     if (!debounced) {
       setHits(null);

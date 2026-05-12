@@ -5,8 +5,6 @@ import { Document, Page, pdfjs } from "react-pdf";
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// pdf.js worker — load from CDN to avoid Next.js bundling headaches.
-// Locked to the version react-pdf ships against.
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
 
 const PDF_OPTIONS = {
@@ -31,14 +29,12 @@ export function PdfViewer({
   const [width, setWidth] = useState<number>(600);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Controlled vs uncontrolled. If parent passes pageNumber, use that.
   const pageNumber = controlledPage ?? internalPage;
   const setPageNumber = (next: number) => {
     if (onPageChange) onPageChange(next);
     if (controlledPage === undefined) setInternalPage(next);
   };
 
-  // Make the rendered page width responsive to the container.
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
@@ -49,7 +45,6 @@ export function PdfViewer({
     return () => ro.disconnect();
   }, []);
 
-  // Reset to page 1 if the document changes (uncontrolled mode only).
   useEffect(() => {
     if (controlledPage === undefined) setInternalPage(1);
     setError(null);

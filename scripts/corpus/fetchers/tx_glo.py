@@ -1,20 +1,3 @@
-"""Texas General Land Office historical land grants fetcher.
-
-Strategy:
-- Iterate land-grant detail pages by numeric ID at:
-    https://www.glo.texas.gov/.../land-grant-search/land-grant/{id}
-- Parse each page for the "View PDF" link. The actual PDFs live on
-  cdn.glo.texas.gov under a stable directory hierarchy.
-- Extract grant metadata (county, grantee, patent date, file number) into the
-  manifest so downstream stages can filter or display it.
-
-Why this corpus matters for Velix: many of these grants are scans of
-1830s-1870s manuscripts, often handwritten in Spanish or English copperplate
-script. They are exactly the documents where visual-first retrieval (ColPali)
-beats OCR-then-search by the largest margin, and where on-demand VLM
-extraction earns its keep over rule-based parsing.
-"""
-
 from __future__ import annotations
 
 import re
@@ -50,8 +33,6 @@ class TexasGloFetcher(Fetcher):
         self.consecutive_miss_limit = consecutive_miss_limit
 
     def _parse_grant_page(self, html: str) -> tuple[dict, str | None]:
-        """Return (metadata, pdf_url) — pdf_url is None when the page exists
-        but has no scanned image attached."""
         soup = BeautifulSoup(html, "html.parser")
 
         pdf_url: str | None = None
@@ -69,9 +50,8 @@ class TexasGloFetcher(Fetcher):
 
         metadata: dict[str, str] = {}
 
-        # GLO uses a Foundation grid: a label div containing
-        # <strong>Field Name:</strong>, followed by a sibling div with the
-        # value. Match by walking strong tags whose text ends with a colon.
+        # GLO uses a Foundation grid: <strong> label inside a div, value in
+        # the next sibling div. Walk strong tags to pull both.
         for strong in soup.find_all("strong"):
             label_text = strong.get_text(strip=True).rstrip(":").strip()
             if not label_text:

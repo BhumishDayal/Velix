@@ -1,12 +1,3 @@
-"""Polite, retrying HTTP fetcher base class.
-
-All public-archive scrapers should inherit from this. Defaults:
-- 1 request/second floor (rate limit defensive against shared infrastructure)
-- Identifying User-Agent (some endpoints, e.g. SEC EDGAR, require it)
-- Exponential backoff on 5xx and 429
-- Streaming download to disk (no in-memory PDF buffering)
-"""
-
 from __future__ import annotations
 
 import time
@@ -25,19 +16,15 @@ DEFAULT_MAX_RETRIES = 4
 
 @dataclass
 class FetchTask:
-    """A single document the fetcher wants to download."""
-
     source_id: str
     url: str
-    relative_path: str  # e.g., "10K/0000950170-25-012345/lease-exhibit.pdf"
+    relative_path: str
     content_type: str = "application/pdf"
     title: str = ""
     metadata: dict | None = None
 
 
 class Fetcher(ABC):
-    """Abstract base class for source-specific corpus fetchers."""
-
     source_name: str
 
     def __init__(
@@ -77,11 +64,10 @@ class Fetcher(ABC):
             self._throttle()
             try:
                 response = self._client.request(method, url, **kwargs)
-            except httpx.HTTPError as exc:
+            except httpx.HTTPError:
                 if attempt == self._max_retries - 1:
                     raise
-                backoff = 2**attempt
-                time.sleep(backoff)
+                time.sleep(2**attempt)
                 continue
             if response.status_code in {429, 500, 502, 503, 504}:
                 if attempt == self._max_retries - 1:
@@ -92,7 +78,7 @@ class Fetcher(ABC):
                 continue
             response.raise_for_status()
             return response
-        raise RuntimeError("unreachable: retry loop exited without returning")
+        raise RuntimeError("unreachable")
 
     def download(self, url: str, dest: Path) -> None:
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -103,8 +89,7 @@ class Fetcher(ABC):
                     if response.status_code in {429, 500, 502, 503, 504}:
                         if attempt == self._max_retries - 1:
                             response.raise_for_status()
-                        backoff = 2**attempt
-                        time.sleep(backoff)
+                        time.sleep(2**attempt)
                         continue
                     response.raise_for_status()
                     tmp = dest.with_suffix(dest.suffix + ".part")
@@ -119,9 +104,4 @@ class Fetcher(ABC):
                 time.sleep(2**attempt)
 
     @abstractmethod
-    def discover(self, max_docs: int) -> Iterator[FetchTask]:
-        """Yield FetchTasks the orchestrator should download.
-
-        Implementations should be lazy (generator) so the orchestrator can
-        stop early once a target page count is hit.
-        """
+    def discover(self, max_docs: int) -> Iterator[FetchTask]: ...

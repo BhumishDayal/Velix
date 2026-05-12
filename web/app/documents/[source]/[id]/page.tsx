@@ -19,8 +19,7 @@ import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { InDocSearch } from "@/components/InDocSearch";
 
-// react-pdf initializes pdfjs worker at module load, which trips Next.js SSR.
-// Dynamically loading with ssr:false keeps it strictly client-side.
+// react-pdf initializes pdfjs worker at module load; ssr:false keeps it client-only.
 const PdfViewer = dynamic(
   () => import("@/components/PdfViewer").then((m) => m.PdfViewer),
   {

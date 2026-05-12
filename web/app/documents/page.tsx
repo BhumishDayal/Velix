@@ -16,10 +16,7 @@ const FILTERS: { value: Filter; label: string }[] = [
 
 const PAGE_SIZE = 24;
 
-// A small handpicked set that lands at the top of the corpus listing.
-// Mix of clean modern SEC oil & gas exhibits and historical TX-GLO grants.
-// Order matters — first card gets the most attention. SEC source_ids use
-// '--' instead of '/' (the backend normalizes both at load time).
+// Curated docs pinned at the top of /documents.
 const PINNED: ReadonlyArray<{ source: string; source_id: string }> = [
   { source: "sec_edgar", source_id: "0001211524-10-000052--adobe8kprovidence.pdf" },
   { source: "sec_edgar", source_id: "0001165527-14-000468--ex10-75.pdf" },
@@ -40,8 +37,6 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch the pinned docs once. They show on every filter view (unless the
-  // filter excludes them by source).
   useEffect(() => {
     let cancelled = false;
     Promise.allSettled(
@@ -94,7 +89,6 @@ export default function DocumentsPage() {
     return () => controller.abort();
   }, [filter, offset]);
 
-  // Pinned docs visible under the current filter, in the curated order.
   const visiblePinned = pinned
     .filter((d) => filter === "all" || d.source === filter)
     .sort((a, b) => {
@@ -107,12 +101,9 @@ export default function DocumentsPage() {
       return ai - bi;
     });
 
-  // De-dupe pinned out of the regular page so cards don't appear twice.
   const restDocs = docs.filter(
     (d) => !PINNED_KEYS.has(`${d.source}|${d.source_id}`),
   );
-
-  // On page 1, prepend pinned; on later pages, just show the regular list.
   const cards = offset === 0 ? [...visiblePinned, ...restDocs] : restDocs;
 
   return (

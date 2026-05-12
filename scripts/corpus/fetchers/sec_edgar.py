@@ -1,19 +1,3 @@
-"""SEC EDGAR oil & gas fetcher.
-
-Strategy:
-1. Hit the EDGAR full-text search endpoint to discover filings matching
-   oil/gas/lease keywords from companies in SIC 1311 (Crude Petroleum &
-   Natural Gas Extraction).
-2. For each matching filing, fetch its document index JSON to enumerate
-   attached exhibits.
-3. Yield FetchTasks for any PDF exhibit (skip HTML/XBRL — we want documents
-   that round-trip to the visual pipeline).
-
-SEC requires an identifying User-Agent for programmatic access; the base
-fetcher sets one. Rate limit is 10 req/sec maximum per SEC's posted policy;
-the base 1 req/sec floor is well inside that.
-"""
-
 from __future__ import annotations
 
 import json
@@ -63,7 +47,6 @@ class SecEdgarFetcher(Fetcher):
         self.per_query_cap = per_query_cap
 
     def _search_page(self, query: str, offset: int) -> tuple[list[dict], int]:
-        """Return (hits_on_this_page, total_hits_reported)."""
         params = {
             "q": query,
             "forms": ",".join(self.forms),
@@ -83,7 +66,6 @@ class SecEdgarFetcher(Fetcher):
         return outer.get("hits", []), total_value
 
     def _search(self, query: str) -> Iterator[dict]:
-        """Yield filtered hits across all pages (up to per_query_cap)."""
         offset = 0
         emitted = 0
         while emitted < self.per_query_cap:
@@ -112,7 +94,6 @@ class SecEdgarFetcher(Fetcher):
         return f"{EDGAR_ARCHIVE_URL}/{int(cik)}/{accession_clean}/{filename}"
 
     def _enumerate_pdfs(self, cik: str, accession_no: str) -> Iterator[tuple[str, str]]:
-        """Yield (filename, full_url) for every PDF in the filing."""
         try:
             response = self.request("GET", self._filing_index_url(cik, accession_no))
             index = response.json()
@@ -137,7 +118,6 @@ class SecEdgarFetcher(Fetcher):
                 if emitted >= max_docs:
                     return
                 source = hit.get("_source", {})
-                # _id format: "0000950170-25-012345:document.htm"; we want the accession
                 hit_id = hit.get("_id", "")
                 accession_no = hit_id.split(":", 1)[0] if ":" in hit_id else hit_id
                 if not accession_no or accession_no in seen_accessions:

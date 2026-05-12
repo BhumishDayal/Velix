@@ -1,5 +1,3 @@
-"""Cheap health endpoint for load-balancer probes and uptime checks."""
-
 from __future__ import annotations
 
 from fastapi import APIRouter

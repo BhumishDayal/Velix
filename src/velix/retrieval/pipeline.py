@@ -1,17 +1,3 @@
-"""Corpus indexing pipeline.
-
-Walks one or more corpus manifests (CSVs produced by scripts/corpus/),
-renders every page of every PDF, embeds them in batches, and upserts
-into a VelixIndex.
-
-Resumability is duplicate-safe rather than skip-based: every page maps to
-a deterministic UUID5 derived from (source, source_id, page_number) so
-re-running an indexing job overwrites prior points with the same key.
-That means partial runs do not produce duplicates; they simply re-do work
-that was already done. Add a per-page checkpoint later if total cost
-becomes a concern.
-"""
-
 from __future__ import annotations
 
 import csv
@@ -35,15 +21,7 @@ def _iter_manifest(manifest_path: Path) -> Iterator[dict[str, str]]:
 
 
 def _resolve_pdf_path(raw: str, manifest_path: Path) -> Path | None:
-    """Resolve a manifest file_path to a real PDF.
-
-    Manifests can be written with paths relative to the manifest's parent
-    directory or relative to wherever the corpus build was run from
-    (typically the repo root). Try absolute, manifest-relative, and
-    cwd-relative in that order; return the first one that exists.
-    """
     raw_path = Path(raw)
-    candidates: list[Path]
     if raw_path.is_absolute():
         candidates = [raw_path]
     else:
@@ -66,10 +44,6 @@ def index_corpus(
     batch_size: int = DEFAULT_BATCH_SIZE,
     on_doc: callable | None = None,
 ) -> dict[str, int]:
-    """Index every PDF in every supplied manifest.
-
-    Returns a stats dict: {"docs": N, "pages": M, "skipped_missing_pdf": K}.
-    """
     pending_pages: list[IndexedPage] = []
     pending_images: list[Image.Image] = []
     stats = {"docs": 0, "pages": 0, "skipped_missing_pdf": 0}

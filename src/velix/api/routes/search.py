@@ -1,5 +1,3 @@
-"""GET /search — visual late-interaction search over the indexed corpus."""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -16,8 +14,6 @@ router = APIRouter(tags=["search"])
 
 
 def _extract_page_text(pdf_path: Path, page_number: int) -> str:
-    """Pull the text layer of a single page. Returns empty string for
-    scanned PDFs (no text layer) or any pymupdf failure."""
     try:
         with pymupdf.open(pdf_path) as doc:
             if page_number < 0 or page_number >= doc.page_count:
@@ -28,11 +24,6 @@ def _extract_page_text(pdf_path: Path, page_number: int) -> str:
 
 
 def _make_snippet(text: str, query: str, max_len: int = 260) -> str:
-    """Slice a window around the earliest query-keyword hit.
-
-    Falls back to the start of the page when no keyword is found.
-    Whitespace is collapsed so the snippet renders cleanly.
-    """
     if not text or not text.strip():
         return ""
     lower = text.lower()
@@ -80,21 +71,13 @@ def search(
     embedder: EmbedderDep,
     index: IndexDep,
     documents: DocumentStoreDep,
-    q: Annotated[str, Query(min_length=1, description="Natural-language query")],
+    q: Annotated[str, Query(min_length=1)],
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
-    source: Annotated[
-        str | None, Query(description="Filter to one corpus source")
-    ] = None,
-    source_id: Annotated[
-        str | None,
-        Query(description="Filter to a single document (URL-safe source_id)"),
-    ] = None,
+    source: Annotated[str | None, Query()] = None,
+    source_id: Annotated[str | None, Query()] = None,
 ) -> SearchResponse:
     query_embedding = embedder.embed_query(q)
 
-    # Qdrant payload stores source_ids in raw form (with '/'); the URL-safe
-    # form (with '--') incoming from the frontend has to be converted back
-    # before filtering. Use the raw form on the wire if you want; both work.
     raw_source_id = (
         source_id.replace("--", "/") if source_id and "--" in source_id else source_id
     )
@@ -108,13 +91,12 @@ def search(
 
     out: list[SearchHitOut] = []
     for hit in hits:
-        # Pull a text snippet from the matched page using pymupdf's text
-        # layer (Tier 0 in our pipeline). Returns "" for scanned PDFs.
         record = documents.get(hit.source, _url_safe_source_id(hit.source_id))
         snippet = ""
         if record and record.file_path.exists():
-            text = _extract_page_text(record.file_path, hit.page_number)
-            snippet = _make_snippet(text, q)
+            snippet = _make_snippet(
+                _extract_page_text(record.file_path, hit.page_number), q
+            )
         out.append(
             SearchHitOut(
                 score=hit.score,

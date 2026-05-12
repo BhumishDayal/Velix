@@ -1,18 +1,5 @@
-"""Rewrite a corpus manifest CSV's file_path column for Modal Volume paths.
-
-Local manifests carry Windows-style relative paths like
-``corpus_glo\\tx_glo\\9113.pdf``. On Modal those PDFs live under the volume
-mount at ``/data/corpus_glo/tx_glo/9113.pdf``. This script normalizes
-backslashes and prefixes the mount path. Idempotent: rows already
-absolute (start with ``/``) are left alone.
-
-Usage:
-    python scripts/rewrite_manifest_for_modal.py corpus_glo/manifest.csv corpus_glo_modal.csv
-    python scripts/rewrite_manifest_for_modal.py corpus_sec/manifest.csv corpus_sec_modal.csv
-
-Optional:
-    --prefix data    Volume mount inside the container (default: data).
-"""
+"""Rewrite a manifest CSV file_path column to absolute Linux paths under
+a Modal Volume mount. Idempotent on already-absolute rows."""
 
 from __future__ import annotations
 

@@ -1,24 +1,3 @@
-"""Qdrant multi-vector index with MaxSim late-interaction search.
-
-Every PDF page is one Qdrant point. The point's vector is a 2-D
-multi-vector (one row per image patch) and its payload carries the
-provenance fields needed to rank, filter, and display:
-
-  - source ("sec_edgar" | "tx_glo" | ...)
-  - source_id
-  - file_path (absolute or repo-relative)
-  - page_number (0-indexed)
-  - title
-  - sha256 of the source PDF (for cache invalidation)
-  - source_metadata (dict — county, grantee, CIK, accession, etc.)
-
-Three connection targets are supported via one factory:
-
-  - "memory"               — in-process, lost on exit (tests)
-  - path/to/qdrant_data    — file-backed, persistent (the demo default)
-  - http(s)://host:port    — remote Qdrant (production / hosted demo)
-"""
-
 from __future__ import annotations
 
 import uuid
@@ -34,9 +13,10 @@ DEFAULT_COLLECTION = "velix_pages"
 
 
 def make_qdrant_client(target: str | Path) -> QdrantClient:
-    """Resolve a connection target to a QdrantClient."""
+    """``"memory"`` for tests, ``http(s)://...`` for remote, anything else
+    treated as a file-backed local store."""
     target_str = str(target)
-    if target_str == "memory" or target_str == ":memory:":
+    if target_str in ("memory", ":memory:"):
         return QdrantClient(":memory:")
     if target_str.startswith(("http://", "https://")):
         return QdrantClient(url=target_str)
@@ -44,8 +24,6 @@ def make_qdrant_client(target: str | Path) -> QdrantClient:
 
 
 class IndexedPage(BaseModel):
-    """One page being inserted into the index."""
-
     source: str
     source_id: str
     file_path: str
@@ -57,8 +35,6 @@ class IndexedPage(BaseModel):
 
 @dataclass
 class SearchHit:
-    """One result returned from a search."""
-
     score: float
     source: str
     source_id: str
@@ -69,8 +45,6 @@ class SearchHit:
 
 
 class VelixIndex:
-    """Thin facade over Qdrant for visual page retrieval."""
-
     def __init__(
         self,
         client: QdrantClient,

@@ -9,16 +9,6 @@ type Status =
   | { kind: "live"; health: HealthResponse }
   | { kind: "down" };
 
-/**
- * Pings /health on mount. Three visible states:
- *   loading → amber dot, "checking backend"
- *   live    → green dot, "Live · N pages indexed"
- *   down    → amber dot, "Open source · in active development"
- *
- * Falling back to the in-development copy on failure means a backend outage
- * doesn't make the page look broken — it just reads as a project that
- * isn't live yet, which is the same as the static state.
- */
 export function LiveStatus() {
   const [status, setStatus] = useState<Status>({ kind: "loading" });
 

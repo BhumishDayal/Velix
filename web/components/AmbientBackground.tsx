@@ -2,12 +2,6 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 
-/**
- * The ambient layer that sits behind every section: a dark gradient base, a
- * faint dotted grid, three slowly-drifting orbs, and a soft top-down vignette.
- * Designed to be cohesive across the entire page so sections "flow" rather
- * than break.
- */
 export function AmbientBackground() {
   const reduce = useReducedMotion();
   return (

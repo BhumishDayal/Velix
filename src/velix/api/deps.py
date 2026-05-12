@@ -1,14 +1,3 @@
-"""Dependency injection wiring for the FastAPI app.
-
-The "real" implementations (ColQwen2 embedder, Qwen2.5-VL extractor, file-
-backed Qdrant) are GPU-bound. The "mock" implementations are CPU-only and
-used by tests + local dev. Both implement the same interfaces so route
-handlers don't care which is plugged in.
-
-Singletons live on ``app.state``. Tests can override them by replacing the
-attribute directly or via FastAPI dependency overrides.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -27,8 +16,6 @@ from .document_store import DocumentStore
 
 @dataclass
 class AppConfig:
-    """Where to load corpora, where Qdrant lives, where the cache file goes."""
-
     manifest_paths: list[Path]
     qdrant_target: str = "memory"
     cache_db_path: Path = Path("velix_api_cache.sqlite")
@@ -65,11 +52,6 @@ def build_document_store(config: AppConfig) -> DocumentStore:
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# FastAPI dependency callables — pull singletons off request.app.state.
-# ─────────────────────────────────────────────────────────────────────────
-
-
 def get_config(request: Request) -> AppConfig:
     return request.app.state.config
 
@@ -94,7 +76,6 @@ def get_cache(request: Request) -> ExtractionCache:
     return request.app.state.cache
 
 
-# Convenience aliases for route signatures
 ConfigDep = Annotated[AppConfig, Depends(get_config)]
 EmbedderDep = Annotated[Embedder, Depends(get_embedder)]
 ExtractorDep = Annotated[Extractor, Depends(get_extractor)]

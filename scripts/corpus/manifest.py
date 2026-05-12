@@ -1,10 +1,3 @@
-"""Corpus manifest — one row per downloaded document, append-only CSV.
-
-The manifest is the source of truth for what's been fetched. Fetchers consult
-it to skip already-downloaded documents (resumability), and downstream
-indexing/extraction stages iterate it to know what to process.
-"""
-
 from __future__ import annotations
 
 import csv

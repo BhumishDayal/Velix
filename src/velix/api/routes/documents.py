@@ -1,11 +1,3 @@
-"""GET /documents — list and inspect what's in the indexed corpus.
-
-Three endpoints:
-  GET /documents                       paginated list, optional source filter
-  GET /documents/{source}/{source_id}  single document metadata
-  GET /documents/{source}/{source_id}/pdf  stream the source PDF
-"""
-
 from __future__ import annotations
 
 from typing import Annotated, Any
@@ -52,7 +44,7 @@ def list_documents(
     documents: DocumentStoreDep,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    source: Annotated[str | None, Query(description="Filter to one corpus source")] = None,
+    source: Annotated[str | None, Query()] = None,
 ) -> DocumentListResponse:
     records = documents.all(source=source, offset=offset, limit=limit)
     return DocumentListResponse(
@@ -90,7 +82,6 @@ def get_document_pdf(
             status_code=404,
             detail=f"PDF not available on disk: {record.file_path}",
         )
-    # `inline` so browsers render the PDF in-place instead of force-downloading.
     return FileResponse(
         path=record.file_path,
         media_type="application/pdf",

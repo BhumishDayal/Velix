@@ -111,11 +111,6 @@ export function Hero() {
   );
 }
 
-/**
- * Abstract product visual: layered "page" cards plus a floating fields panel.
- * The label values are illustrative — they correspond to the canned data the
- * MockExtractor produces in the test suite, not a live extraction.
- */
 function HeroVisual() {
   const reduce = useReducedMotion();
   return (

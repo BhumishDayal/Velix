@@ -6,11 +6,6 @@ import { Search as SearchIcon, X, Loader2 } from "lucide-react";
 import { api, type SearchHit, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-/**
- * In-document semantic search. Debounces the query, hits the backend with
- * a source_id filter so only this document's pages can match. Clicking a
- * result calls ``onJumpToPage`` so the parent can drive the PDF viewer.
- */
 export function InDocSearch({
   source,
   sourceId,
@@ -31,13 +26,11 @@ export function InDocSearch({
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Debounce
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query.trim()), 250);
     return () => clearTimeout(t);
   }, [query]);
 
-  // Search whenever debounced query changes
   useEffect(() => {
     if (!debounced) {
       setHits(null);
@@ -133,7 +126,7 @@ export function InDocSearch({
             className="mt-3 space-y-2 max-h-[420px] overflow-y-auto pr-1"
           >
             {hits.map((hit, i) => {
-              const displayPage = hit.page_number + 1; // 0-indexed → 1-indexed for UX
+              const displayPage = hit.page_number + 1;
               const isCurrent = currentPage === displayPage;
               return (
                 <button
@@ -180,9 +173,6 @@ export function InDocSearch({
   );
 }
 
-/** Renders ``text`` with any words from ``query`` (length>2) wrapped in
- *  ``<mark>``. Case-insensitive. Safe for arbitrary text — escapes regex
- *  metacharacters in the query. */
 function Highlighted({ text, query }: { text: string; query: string }) {
   if (!text || !query) return <>{text}</>;
   const words = query.split(/\s+/).filter((w) => w.length > 2);

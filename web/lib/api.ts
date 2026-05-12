@@ -1,17 +1,5 @@
-/**
- * Typed client for the Velix FastAPI backend.
- *
- * The base URL is read from NEXT_PUBLIC_API_URL at build time, falling back
- * to the deployed Modal URL so things work out-of-the-box without env-var
- * config.
- */
-
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "https://bhumishdayal--velix-api.modal.run";
-
-// ─────────────────────────────────────────────────────────────────────────
-// Response types — mirror the FastAPI Pydantic responses.
-// ─────────────────────────────────────────────────────────────────────────
 
 export interface HealthResponse {
   status: string;
@@ -71,10 +59,6 @@ export interface ExtractResponse {
   extraction: Record<string, unknown>;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Fetch helpers
-// ─────────────────────────────────────────────────────────────────────────
-
 class ApiError extends Error {
   constructor(
     public status: number,
@@ -102,10 +86,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return (await res.json()) as T;
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// Public API
-// ─────────────────────────────────────────────────────────────────────────
 
 export const api = {
   health: (signal?: AbortSignal) => request<HealthResponse>("/health", { signal }),

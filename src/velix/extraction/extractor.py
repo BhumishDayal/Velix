@@ -1,20 +1,3 @@
-"""Extractor interface and implementations.
-
-Two implementations:
-
-- ``MockExtractor`` — returns canned, schema-valid instances. Lets the rest
-  of the extraction stack (CLI, API, frontend mocks, schema-validation
-  tests) be exercised without GPUs or model downloads.
-- ``Qwen2VLExtractor`` — real Qwen2.5-VL-7B with strict JSON-mode output.
-  Requires GPU and the ``[olmocr]`` extras (``torch``, ``transformers``).
-  Imported lazily so this module loads on CPU-only environments.
-
-Both produce a validated instance of the requested schema class. Anything
-the model returns that fails the Pydantic constraints raises — we never
-silently coerce or drop fields. That strictness is the answer to "VLMs
-hallucinate."
-"""
-
 from __future__ import annotations
 
 import json
@@ -39,8 +22,6 @@ from .schemas import (
 
 
 class Extractor(ABC):
-    """Common interface for any structured extractor."""
-
     @abstractmethod
     def extract(
         self,
@@ -48,19 +29,10 @@ class Extractor(ABC):
         schema_class: type[BaseExtraction],
         *,
         page_number: int = 0,
-    ) -> BaseExtraction:
-        """Extract a typed instance of ``schema_class`` from the page image.
-
-        Raises ``pydantic.ValidationError`` (or ``ValueError``) if the model
-        produces output that does not satisfy the schema. Callers must be
-        prepared to retry, fall back, or surface the error.
-        """
+    ) -> BaseExtraction: ...
 
 
 def _canned_for(schema_class: type[BaseExtraction], page_number: int) -> BaseExtraction:
-    """Build a canned, schema-valid instance for the given doc type. Used by
-    MockExtractor; values are realistic for an oil & gas mineral-rights book."""
-
     common = dict(page_number=page_number, extraction_confidence=0.92)
 
     if schema_class is MineralDeed:
@@ -163,8 +135,7 @@ def _canned_for(schema_class: type[BaseExtraction], page_number: int) -> BaseExt
 
 
 class MockExtractor(Extractor):
-    """Returns canned, schema-valid instances. Tests can rely on the values
-    being deterministic for the same (schema_class, page_number)."""
+    """Deterministic canned-output extractor for CPU tests."""
 
     def extract(
         self,
@@ -177,11 +148,7 @@ class MockExtractor(Extractor):
 
 
 class Qwen2VLExtractor(Extractor):
-    """Real Qwen2.5-VL-7B extractor with strict JSON-mode output. GPU required.
-
-    Heavy imports (torch, transformers, qwen_vl_utils) deferred to
-    ``__init__`` so this module loads on CPU-only environments.
-    """
+    """Qwen2.5-VL-7B with strict JSON-mode output. GPU required."""
 
     DEFAULT_PROMPT = (
         "You are an expert oil & gas paralegal. Read the document image and "
@@ -208,8 +175,8 @@ class Qwen2VLExtractor(Extractor):
         dtype: str = "bfloat16",
         max_new_tokens: int = 1024,
     ) -> None:
-        import torch  # local import: heavy
-        from transformers import (  # local import: heavy
+        import torch
+        from transformers import (
             AutoProcessor,
             Qwen2_5_VLForConditionalGeneration,
         )

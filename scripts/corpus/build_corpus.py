@@ -1,16 +1,3 @@
-"""Corpus builder CLI.
-
-Walks one or more source fetchers, downloads documents into the corpus
-directory, and appends to the manifest. Resumable: documents already in the
-manifest are skipped.
-
-Usage:
-
-    python scripts/corpus/build_corpus.py --source sec_edgar --max-docs 10 --out corpus
-
-    python scripts/corpus/build_corpus.py --source sec_edgar --target-pages 1500 --out corpus
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -18,7 +5,6 @@ import json
 import sys
 from pathlib import Path
 
-# allow running as a script from the repo root without installing the package
 THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(THIS_DIR.parent))
 

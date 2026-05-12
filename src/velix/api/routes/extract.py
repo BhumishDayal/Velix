@@ -1,9 +1,3 @@
-"""POST /extract — schema-typed extraction for a single page.
-
-Cache hits return immediately. Cache misses render the page, run the
-extractor, validate against the schema, persist, and return.
-"""
-
 from __future__ import annotations
 
 from typing import Annotated, Any
@@ -23,7 +17,7 @@ class ExtractRequest(BaseModel):
     source: str = Field(min_length=1)
     source_id: str = Field(min_length=1)
     page_number: int = Field(ge=0)
-    schema_name: str = Field(min_length=1, description="One of DOC_TYPE_REGISTRY keys")
+    schema_name: str = Field(min_length=1)
 
 
 class ExtractResponse(BaseModel):
@@ -41,7 +35,7 @@ async def extract(
     documents: DocumentStoreDep,
     extractor: ExtractorDep,
     cache: CacheDep,
-    refresh: Annotated[bool, Query(description="Bypass and overwrite cache")] = False,
+    refresh: Annotated[bool, Query()] = False,
 ) -> ExtractResponse:
     schema_class = DOC_TYPE_REGISTRY.get(body.schema_name)
     if schema_class is None:

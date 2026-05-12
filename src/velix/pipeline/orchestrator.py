@@ -1,9 +1,4 @@
-"""Confidence-gated tier-routing orchestrator.
-
-Walk each page through the cheapest tier first; escalate only when the
-returned confidence is below the configured threshold. Track per-page tier,
-cost, and duration so the demo can show real cost-vs-Textract numbers.
-"""
+"""Confidence-gated tier-routing orchestrator."""
 
 from __future__ import annotations
 

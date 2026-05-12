@@ -1,14 +1,3 @@
-"""FastAPI application factory.
-
-Singletons (embedder, extractor, index, document store, cache) live on
-``app.state`` and are constructed during the lifespan startup hook so the
-heavy work happens once per process. Tests construct an app with a small
-``AppConfig``; production passes a real one.
-
-CORS is permissive in dev and locked down to allowed origins in prod via
-``AppConfig.cors_origins``.
-"""
-
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -16,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .cache import ExtractionCache
 from .deps import (
     AppConfig,
     build_document_store,
@@ -23,7 +13,6 @@ from .deps import (
     build_extractor,
     build_index,
 )
-from .cache import ExtractionCache
 from .routes import documents as documents_route
 from .routes import extract as extract_route
 from .routes import health as health_route
@@ -33,7 +22,6 @@ from .routes import search as search_route
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     config: AppConfig = app.state.config
-
     embedder = build_embedder(config)
     extractor = build_extractor(config)
     index = build_index(config, embedder)
@@ -49,26 +37,14 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # No teardown needed: Qdrant local client closes on GC, aiosqlite
-    # opens/closes per request.
-
 
 def create_app(config: AppConfig) -> FastAPI:
-    app = FastAPI(
-        title="Velix API",
-        description=(
-            "Visual-first retrieval and structured extraction for legal and "
-            "real-asset documents."
-        ),
-        version="0.1.0",
-        lifespan=lifespan,
-    )
+    app = FastAPI(title="Velix API", version="0.1.0", lifespan=lifespan)
     app.state.config = config
 
-    cors_origins = config.cors_origins or ["*"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins,
+        allow_origins=config.cors_origins or ["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
