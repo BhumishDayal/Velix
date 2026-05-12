@@ -41,6 +41,8 @@ export function Navbar() {
     setOpen(false);
   }, [pathname]);
 
+  const lifted = scrolled || pathname !== "/";
+
   return (
     <motion.header
       initial={{ y: -28, opacity: 0 }}
@@ -48,17 +50,20 @@ export function Navbar() {
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
         "fixed top-0 inset-x-0 z-50 transition-all duration-500",
-        scrolled || pathname !== "/" ? "pt-3" : "pt-6",
+        lifted ? "pt-3" : "pt-6",
       )}
     >
-      <nav
-        className={cn(
-          "mx-auto flex items-center justify-between gap-4 transition-all duration-500 max-w-6xl px-4 sm:px-6",
-          scrolled || pathname !== "/"
-            ? "rounded-2xl glass-strong px-3 py-2.5 shadow-glow w-[calc(100%-1.5rem)] sm:w-[calc(100%-3rem)]"
-            : "py-3",
-        )}
-      >
+      <nav className="relative mx-auto max-w-6xl px-4 sm:px-6 py-3">
+        {/* Glass card — always rendered, opacity fades to avoid border snap */}
+        <div
+          aria-hidden
+          className={cn(
+            "absolute inset-x-4 sm:inset-x-6 inset-y-0 rounded-2xl glass-strong shadow-glow",
+            "transition-opacity duration-500 will-change-[opacity]",
+            lifted ? "opacity-100" : "opacity-0",
+          )}
+        />
+        <div className="relative flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2 group">
           <Logo />
           <span className="text-sm font-semibold tracking-tight text-white">
@@ -112,6 +117,7 @@ export function Navbar() {
         >
           {open ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </button>
+        </div>
       </nav>
 
       <AnimatePresence>

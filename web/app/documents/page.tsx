@@ -16,14 +16,49 @@ const FILTERS: { value: Filter; label: string }[] = [
 
 const PAGE_SIZE = 24;
 
+// A small handpicked set that lands at the top of the corpus listing.
+// Mix of clean modern SEC oil & gas exhibits and historical TX-GLO grants.
+// Order matters — first card gets the most attention.
+const PINNED: ReadonlyArray<{ source: string; source_id: string }> = [
+  { source: "sec_edgar", source_id: "0001211524-10-000052/adobe8kprovidence.pdf" },
+  { source: "sec_edgar", source_id: "0001165527-14-000468/ex10-75.pdf" },
+  { source: "tx_glo", source_id: "9113" },
+  { source: "tx_glo", source_id: "9225" },
+  { source: "tx_glo", source_id: "9117" },
+  { source: "tx_glo", source_id: "9258" },
+] as const;
+
+const PINNED_KEYS = new Set(PINNED.map((p) => `${p.source}|${p.source_id}`));
+
 export default function DocumentsPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [offset, setOffset] = useState(0);
+  const [pinned, setPinned] = useState<DocumentSummary[]>([]);
   const [docs, setDocs] = useState<DocumentSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch the pinned docs once. They show on every filter view (unless the
+  // filter excludes them by source).
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled(
+      PINNED.map((p) => api.getDocument(p.source, p.source_id)),
+    ).then((results) => {
+      if (cancelled) return;
+      setPinned(
+        results
+          .filter((r): r is PromiseFulfilledResult<DocumentSummary> => r.status === "fulfilled")
+          .map((r) => r.value),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Reset pagination when filter changes.
   useEffect(() => {
     setOffset(0);
   }, [filter]);
@@ -58,6 +93,27 @@ export default function DocumentsPage() {
     return () => controller.abort();
   }, [filter, offset]);
 
+  // Pinned docs visible under the current filter, in the curated order.
+  const visiblePinned = pinned
+    .filter((d) => filter === "all" || d.source === filter)
+    .sort((a, b) => {
+      const ai = PINNED.findIndex(
+        (p) => p.source === a.source && p.source_id === a.source_id,
+      );
+      const bi = PINNED.findIndex(
+        (p) => p.source === b.source && p.source_id === b.source_id,
+      );
+      return ai - bi;
+    });
+
+  // De-dupe pinned out of the regular page so cards don't appear twice.
+  const restDocs = docs.filter(
+    (d) => !PINNED_KEYS.has(`${d.source}|${d.source_id}`),
+  );
+
+  // On page 1, prepend pinned; on later pages, just show the regular list.
+  const cards = offset === 0 ? [...visiblePinned, ...restDocs] : restDocs;
+
   return (
     <main className="relative min-h-screen pt-32 pb-24">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
@@ -74,8 +130,8 @@ export default function DocumentsPage() {
           </h1>
           <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-300/80 leading-relaxed">
             Public oil &amp; gas documents from SEC EDGAR and the Texas
-            General Land Office. Click into any record to see the per-page
-            metadata.
+            General Land Office. Click any record to see metadata, the source
+            PDF, and structured extraction.
           </p>
         </motion.div>
 
@@ -116,7 +172,7 @@ export default function DocumentsPage() {
         ) : (
           <>
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              {docs.map((doc, i) => (
+              {cards.map((doc, i) => (
                 <DocumentCard
                   key={`${doc.source}/${doc.source_id}`}
                   doc={doc}
@@ -125,7 +181,7 @@ export default function DocumentsPage() {
               ))}
             </div>
 
-            {docs.length === 0 && !loading ? (
+            {cards.length === 0 && !loading ? (
               <div className="mt-10 rounded-2xl glass p-8 text-center text-sm text-slate-400">
                 No documents.
               </div>
