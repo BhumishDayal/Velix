@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 from abc import ABC, abstractmethod
 from datetime import date
+from typing import Any
 
 from PIL import Image
+from pydantic import ValidationError
 
 from .schemas import (
     Assignment,
@@ -19,6 +21,35 @@ from .schemas import (
     Ratification,
     RecordingInfo,
 )
+
+
+_BASE_FIELDS = set(BaseExtraction.model_fields.keys())
+
+
+def _validate_dropping_bad_fields(
+    schema_class: type[BaseExtraction], payload: dict[str, Any]
+) -> BaseExtraction:
+    """Try strict validation; on failure, null out top-level substantive fields
+    that errored and retry. Never drop core BaseExtraction fields."""
+    payload = dict(payload)
+    for _ in range(20):
+        try:
+            return schema_class.model_validate(payload)
+        except ValidationError as exc:
+            removed = False
+            for err in exc.errors():
+                loc = err.get("loc", ())
+                if not loc:
+                    continue
+                top = loc[0]
+                if top in _BASE_FIELDS or top not in payload:
+                    continue
+                annotation = schema_class.model_fields[top].annotation
+                payload[top] = [] if annotation is list else None
+                removed = True
+            if not removed:
+                raise
+    raise RuntimeError("validation drop loop did not converge")
 
 
 class Extractor(ABC):
@@ -157,14 +188,17 @@ class Qwen2VLExtractor(Extractor):
         "Rules:\n"
         "- Output ONLY a valid JSON object, no prose, no markdown code fences.\n"
         "- Do not invent fields not present in the document.\n"
+        "- For any field you cannot extract with confidence from this page, set "
+        "  the field to null (do NOT guess and do NOT emit a partial object). "
+        "  Lower extraction_confidence accordingly.\n"
         "- For dates use ISO 8601 (YYYY-MM-DD) or null if absent.\n"
         "- For fractions, fill numerator + denominator + decimal_value + "
         "  is_power_of_two_denominator. Power-of-two means denominators like "
-        "  2, 4, 8, 16, 32, 64, 128.\n"
+        "  2, 4, 8, 16, 32, 64, 128. If you can't determine all four, set the "
+        "  whole fraction field to null.\n"
         "- For PLSS descriptions, township_direction is N or S; range_direction "
-        "  is E or W; section is 1-36.\n"
-        "- If a required field cannot be extracted with confidence, lower the "
-        "  extraction_confidence score; do not guess values."
+        "  is E or W; section is 1-36. If you can't determine all of "
+        "  section/township/range, set the whole legal_description to null."
     )
 
     def __init__(
@@ -235,4 +269,4 @@ class Qwen2VLExtractor(Extractor):
 
         payload = json.loads(output_text)
         payload.setdefault("page_number", page_number)
-        return schema_class.model_validate(payload)
+        return _validate_dropping_bad_fields(schema_class, payload)

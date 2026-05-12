@@ -91,60 +91,61 @@ class BaseExtraction(BaseModel):
     page_number: int = Field(ge=0)
     extraction_confidence: float = Field(ge=0.0, le=1.0)
     notes: list[str] = Field(default_factory=list)
+    missing_fields: list[str] = Field(default_factory=list)
 
     document_type: ClassVar[str]
 
 
 class MineralDeed(BaseExtraction):
     document_type: Literal["mineral_deed"] = "mineral_deed"
-    grantor: PartyName
-    grantee: PartyName
-    fraction: ExtractedMineralFraction
-    legal_description: ExtractedPLSSDescription
+    grantor: PartyName | None = None
+    grantee: PartyName | None = None
+    fraction: ExtractedMineralFraction | None = None
+    legal_description: ExtractedPLSSDescription | None = None
     effective_date: date | None = None
     recording: RecordingInfo | None = None
 
 
 class OilGasLease(BaseExtraction):
     document_type: Literal["oil_gas_lease"] = "oil_gas_lease"
-    lessor: PartyName
-    lessee: PartyName
-    royalty_fraction: ExtractedMineralFraction
-    primary_term_years: int = Field(gt=0, le=99)
-    legal_description: ExtractedPLSSDescription
+    lessor: PartyName | None = None
+    lessee: PartyName | None = None
+    royalty_fraction: ExtractedMineralFraction | None = None
+    primary_term_years: int | None = Field(default=None, gt=0, le=99)
+    legal_description: ExtractedPLSSDescription | None = None
     effective_date: date | None = None
     recording: RecordingInfo | None = None
 
 
 class DivisionOrder(BaseExtraction):
     document_type: Literal["division_order"] = "division_order"
-    operator: PartyName
-    well_name: str = Field(min_length=1)
-    party: PartyName
-    decimal_interest: float = Field(ge=0.0, le=1.0)
+    operator: PartyName | None = None
+    well_name: str | None = Field(default=None, min_length=1)
+    party: PartyName | None = None
+    decimal_interest: float | None = Field(default=None, ge=0.0, le=1.0)
     effective_date: date | None = None
 
 
 class Assignment(BaseExtraction):
     document_type: Literal["assignment"] = "assignment"
-    assignor: PartyName
-    assignee: PartyName
-    fraction_assigned: ExtractedMineralFraction
+    assignor: PartyName | None = None
+    assignee: PartyName | None = None
+    fraction_assigned: ExtractedMineralFraction | None = None
     original_lease_reference: str | None = None
     effective_date: date | None = None
 
 
 class Ratification(BaseExtraction):
     document_type: Literal["ratification"] = "ratification"
-    party: PartyName
-    original_document_reference: str = Field(min_length=1)
+    party: PartyName | None = None
+    original_document_reference: str | None = Field(default=None, min_length=1)
     ratification_date: date | None = None
 
 
 class JointOperatingAgreement(BaseExtraction):
     document_type: Literal["joa_snippet"] = "joa_snippet"
-    operator: PartyName
-    non_operators: list[PartyName] = Field(min_length=1)
+    operator: PartyName | None = None
+    non_operators: list[PartyName] = Field(default_factory=list)
     afe_threshold_usd: float | None = Field(default=None, ge=0.0)
     voting_threshold_pct: float | None = Field(default=None, ge=0.0, le=100.0)
 

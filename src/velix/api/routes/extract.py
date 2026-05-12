@@ -6,11 +6,26 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, ValidationError
 
 from velix.extraction import DOC_TYPE_REGISTRY
+from velix.extraction.schemas import BaseExtraction
 from velix.retrieval.page_rendering import render_pdf_pages
 
 from ..deps import CacheDep, DocumentStoreDep, ExtractorDep
 
 router = APIRouter(tags=["extract"])
+
+
+_BASE_FIELDS = set(BaseExtraction.model_fields.keys())
+
+
+def _compute_missing_fields(instance: BaseExtraction) -> list[str]:
+    missing: list[str] = []
+    for name in instance.__class__.model_fields:
+        if name in _BASE_FIELDS:
+            continue
+        value = getattr(instance, name)
+        if value is None or value == [] or value == "":
+            missing.append(name)
+    return missing
 
 
 class ExtractRequest(BaseModel):
@@ -96,6 +111,9 @@ async def extract(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    missing = _compute_missing_fields(instance)
+    if missing and not instance.missing_fields:
+        instance = instance.model_copy(update={"missing_fields": missing})
     payload = instance.model_dump(mode="json")
     await cache.set(
         body.source, body.source_id, body.page_number, body.schema_name, payload

@@ -388,6 +388,15 @@ function ExtractionPanel({ doc }: { doc: DocumentSummary }) {
               {result.cached ? "cached" : "fresh"}
             </span>
           </div>
+          {Array.isArray(result.extraction.missing_fields) &&
+          (result.extraction.missing_fields as string[]).length > 0 ? (
+            <div className="mb-2 rounded-md border border-amber-400/30 bg-amber-400/5 px-2.5 py-1.5 text-[10px] text-amber-200">
+              Not found on this page:{" "}
+              <span className="font-mono">
+                {(result.extraction.missing_fields as string[]).join(", ")}
+              </span>
+            </div>
+          ) : null}
           <input
             value={resultFilter}
             onChange={(e) => setResultFilter(e.target.value)}
